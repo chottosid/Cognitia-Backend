@@ -1,0 +1,33 @@
+{
+  "name": "cognitia-backend",
+  "version": "1.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "test": "echo \"No tests yet\""
+  },
+  "dependencies": {
+    "bcryptjs": "latest",
+    "compression": "^1.8.0",
+    "cors": "latest",
+    "dotenv": "latest",
+    "express": "latest",
+    "express-rate-limit": "latest",
+    "express-validator": "latest",
+    "helmet": "latest",
+    "jsonwebtoken": "latest",
+    "morgan": "latest",
+    "@prisma/client": "^6.10.1",
+    "nodemailer": "7.0.3",
+    "uuid": "latest"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^7.6.0",
+    "crypto": "^1.0.1",
+    "lorem-ipsum": "^2.0.3",
+    "prisma": "^6.10.1",
+    "typescript": "^5"
+  }
+}
