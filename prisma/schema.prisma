@@ -163,7 +163,6 @@ model Task {
   subjectArea  String
   tags         String[]   @default([])
   estimatedTime Int?
-  notes        String?
   completedAt  DateTime?
   userId       String
   createdAt    DateTime   @default(now())

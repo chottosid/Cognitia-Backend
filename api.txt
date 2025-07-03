@@ -1,0 +1,248 @@
+***************Tasks API Documentation***************
+
+
+1. Get All Tasks
+
+    Endpoint: GET /
+
+    Description: Retrieve all tasks for the authenticated user.
+
+    Response:
+
+{
+  "tasks": [
+    {
+      "id": "uuid",
+      "title": "Task Title",
+      "description": "Task description",
+      "dueDate": "2025-07-04T00:00:00.000Z",
+      "priority": "HIGH",
+      "subjectArea": "Math",
+      "tags": ["urgent", "homework"],
+      "estimatedTime": 120,
+      "notes": "Some notes",
+      "status": "NOT_STARTED",
+      "userId": "user-uuid"
+    }
+  ]
+}
+
+2. Get Task By ID
+
+    Endpoint: GET /:id
+
+    Description: Retrieve a specific task by its ID (must belong to the user).
+
+    Response (Success):
+
+{
+  "task": {
+    "id": "uuid",
+    "title": "Task Title",
+    "description": "Task description",
+    "dueDate": "2025-07-04T00:00:00.000Z",
+    "priority": "HIGH",
+    "subjectArea": "Math",
+    "tags": ["urgent"],
+    "estimatedTime": 120,
+    "notes": "Notes here",
+    "status": "IN_PROGRESS",
+    "userId": "user-uuid"
+  }
+}
+
+    Response (Not Found):
+
+{
+  "error": "Task not found"
+}
+
+3. Create New Task
+
+    Endpoint: POST /
+
+    Description: Create a new task for the authenticated user.
+
+    Request Body:
+
+{
+  "title": "New Task",
+  "description": "Task details",
+  "dueDate": "2025-07-05",
+  "priority": "MEDIUM",
+  "subjectArea": "Science",
+  "tags": ["study", "exam"],
+  "estimatedTime": 12, // in hours
+}
+
+    Response:
+
+{
+  "message": "Task created successfully",
+  "task": {
+    "id": "uuid",
+    "title": "New Task",
+    "description": "Task details",
+    "dueDate": "2025-07-05T00:00:00.000Z",
+    "priority": "MEDIUM",
+    "subjectArea": "Science",
+    "tags": ["study", "exam"],
+    "estimatedTime": 90,
+    "notes": "Remember to review",
+    "status": "NOT_STARTED",
+    "userId": "user-uuid"
+  }
+}
+
+4. Update Task
+
+    Endpoint: PUT /:id
+
+    Description: Update an existing task by ID (must belong to the user).
+
+    Request Body: Same as create task, all fields required.
+
+    Response (Success):
+
+{
+  "message": "Task updated successfully",
+  "task": {
+    "id": "uuid",
+    "title": "...",
+    "description": "...",
+    "dueDate": "2025-07-05T00:00:00.000Z",
+    "priority": "...",
+    "subjectArea": "...",
+    "tags": [...],
+    "estimatedTime": 90,
+    "notes": "...",
+    "status": "...",
+    "userId": "user-uuid"
+  }
+}
+
+    Response (Not Found):
+
+{
+  "error": "Task not found"
+}
+
+5. Update Task Status
+
+    Endpoint: PATCH /:id/status
+
+    Description: Update the status of a task.
+
+    Request Body:
+
+{
+  "status": "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED"
+}
+
+    Response (Success):
+
+{
+  "message": "Task status updated successfully",
+  "task": {
+    "id": "uuid",
+    "status": "COMPLETED",
+    "completedAt": "2025-07-03T15:00:00.000Z",
+    // other task fields...
+  }
+}
+
+    Response (Not Found):
+
+{
+  "error": "Task not found"
+}
+
+    Validation Errors:
+    If invalid status or invalid ID, returns HTTP 400 with validation error messages.
+
+6. Delete Task
+
+    Endpoint: DELETE /:id
+
+    Description: Delete a task by ID (must belong to the user).
+
+    Response (Success):
+
+{
+  "message": "Task deleted successfully"
+}
+
+    Response (Not Found):
+
+{
+  "error": "Task not found"
+}
+
+7. Generate Schedule
+
+    Endpoint: POST /generate
+
+    Description: Generate a study schedule based on user's pending tasks and availability.
+
+    Process:
+
+        Retrieves tasks with status NOT_STARTED or IN_PROGRESS.
+
+        Fetches user's availability for today, or uses default time slots if none.
+
+        Calls an external Flask API to generate the schedule.
+
+        Saves generated study session in the database.
+
+    Request Body: None.
+
+    Response (Success):
+
+{
+  "schedule": {
+    "taskId": "uuid",
+    "startTime": "2025-07-03T09:00:00.000Z",
+    "endTime": "2025-07-03T11:00:00.000Z",
+    "goal": "Complete chapter 5"
+  }
+}
+
+    Response (Errors):
+
+{
+  "error": "No tasks found for the user"
+}
+
+or
+
+{
+  "error": "Could not reach scheduling service"
+}
+
+or
+
+{
+  "error": "Invalid schedule response"
+}
+
+8. Get Today's Schedule
+
+    Endpoint: GET /today
+
+    Description: Get all study sessions scheduled for today.
+
+    Response:
+
+{
+  "sessions": [
+    {
+      "id": "uuid",
+      "userId": "user-uuid",
+      "taskId": "task-uuid",
+      "startTime": "2025-07-03T09:00:00.000Z",
+      "endTime": "2025-07-03T11:00:00.000Z",
+      "duration": 120,
+      "goal": "Complete chapter 5"
+    }
+  ]
+}
