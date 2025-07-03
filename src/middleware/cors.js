@@ -2,7 +2,7 @@ import cors from "cors";
 
 // CORS middleware that allows any origin
 const corsMiddleware = cors({
-  origin: "*", // Allow all origins
+  origin: process.env.FRONTEND_URL, // Allow specific origin
   credentials: true,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   allowedHeaders: [
@@ -15,13 +15,5 @@ const corsMiddleware = cors({
   optionsSuccessStatus: 204,
 });
 
-// You can also create a more flexible version if needed in the future
-const configurableCorsMiddleware = (options = {}) => {
-  return cors({
-    origin: "*",
-    ...options,
-  });
-};
-
-export { corsMiddleware, configurableCorsMiddleware };
+export { corsMiddleware };
 export default corsMiddleware;
