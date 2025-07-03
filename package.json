@@ -21,6 +21,8 @@
     "jsonwebtoken": "latest",
     "morgan": "latest",
     "nodemailer": "7.0.3",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.1",
     "uuid": "latest"
   },
   "devDependencies": {

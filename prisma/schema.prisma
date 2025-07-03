@@ -42,6 +42,7 @@ model User {
   contestRegistrations ContestRegistration[]
   testAttempts      TestAttempt[]
   customTests       ModelTest[]    @relation("TestCreator")
+  availability      UserAvailability[]
 
   @@map("users")
 }
@@ -194,6 +195,20 @@ model StudySession {
 
   @@map("study_sessions")
 }
+
+model UserAvailability {
+  id          String   @id @default(cuid())
+  userId      String
+  date        DateTime 
+  startTime   String 
+  endTime     String 
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id])
+
+  @@index([userId, date])
+}
+
 
 model Contest {
   id           String        @id @default(cuid())

@@ -3,6 +3,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import compression from "compression";
 import dotenv from "dotenv";
+import { swaggerSpec, swaggerUi } from "./utils/swagger.js";
 
 import corsMiddleware from "./middleware/cors.js";
 import errorHandler from "./middleware/errorHandler.js";
@@ -10,12 +11,13 @@ import { authenticateToken } from "./middleware/auth.js";
 // Import your route handlers
 import authRoutes from "./routes/auth.js";
 import analyticsRoutes from "./routes/analytics.js";
+import tasksRoutes from "./routes/tasks.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
 // Security and optimization middleware
 app.use(helmet());
@@ -39,18 +41,16 @@ app.get("/health", (req, res) => {
 // API routes
 app.use("/api/auth", authRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
-
+app.use("/api/tasks", authenticateToken, tasksRoutes);
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Route not found",
-    path: req.originalUrl,
-    method: req.method,
-  });
-});
 
 // Error handling middleware
 app.use(errorHandler);
+
+// Swagger documentation
+app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true
+}));
 
 connectDatabase()
   .then(() => {
