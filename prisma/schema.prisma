@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,76 +8,70 @@ datasource db {
 }
 
 model User {
-  id          String   @id @default(cuid())
-  email       String   @unique
-  name        String
-  password    String
-  role        UserRole @default(STUDENT)
-  avatar      String?
-  bio         String?
-  institution String?
-  location    String?
-  website     String?
-  otp         String?
-  otpExpires  DateTime?
-  verified    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relations
-  questions         Question[]
-  answers           Answer[]
-  notes             Note[]
-  notesGroups       NotesGroup[]
-  tasks             Task[]
-  sessions          StudySession[]
-  questionVotes     QuestionVote[]
-  answerVotes       AnswerVote[]
-  savedItems        SavedItem[]
-  notifications     Notification[]
-  contestsOrganized Contest[]      @relation("ContestOrganizer")
+  id                   String                @id @default(cuid())
+  email                String                @unique
+  name                 String
+  password             String
+  role                 UserRole              @default(STUDENT)
+  avatar               String?
+  bio                  String?
+  institution          String?
+  location             String?
+  website              String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  otp                  String?
+  otpExpires           DateTime?
+  verified             Boolean               @default(false)
+  answerVotes          AnswerVote[]
+  answers              Answer[]
   contestRegistrations ContestRegistration[]
-  testAttempts      TestAttempt[]
-  customTests       ModelTest[]    @relation("TestCreator")
-  availability      UserAvailability[]
+  contestsOrganized    Contest[]             @relation("ContestOrganizer")
+  customTests          ModelTest[]           @relation("TestCreator")
+  notes                Note[]
+  notesGroups          NotesGroup[]
+  notifications        Notification[]
+  questionVotes        QuestionVote[]
+  questions            Question[]
+  savedItems           SavedItem[]
+  sessions             StudySession[]
+  tasks                Task[]
+  testAttempts         TestAttempt[]
+  test_questions       test_questions[]
 
   @@map("users")
 }
 
 model Question {
-  id         String     @id @default(cuid())
+  id         String         @id @default(cuid())
   title      String
   body       String
   tags       String[]
-  views      Int        @default(0)
-  isResolved Boolean    @default(false)
-  difficulty Difficulty @default(MEDIUM)
+  views      Int            @default(0)
+  isResolved Boolean        @default(false)
+  difficulty Difficulty     @default(MEDIUM)
   subject    String?
   authorId   String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  // Relations
-  author  User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  answers Answer[]
-  votes   QuestionVote[]
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  answers    Answer[]
+  votes      QuestionVote[]
+  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("questions")
 }
 
 model Answer {
-  id         String   @id @default(cuid())
+  id         String       @id @default(cuid())
   content    String
-  isAccepted Boolean  @default(false)
+  isAccepted Boolean      @default(false)
   questionId String
   authorId   String
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-
-  // Relations
-  question Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  author   User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  votes    AnswerVote[]
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  votes      AnswerVote[]
+  author     User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@map("answers")
 }
@@ -91,25 +82,21 @@ model QuestionVote {
   questionId String
   userId     String
   createdAt  DateTime @default(now())
-
-  // Relations
-  question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([questionId, userId])
   @@map("question_votes")
 }
 
 model AnswerVote {
-  id       String   @id @default(cuid())
-  voteType VoteType
-  answerId String
-  userId   String
+  id        String   @id @default(cuid())
+  voteType  VoteType
+  answerId  String
+  userId    String
   createdAt DateTime @default(now())
-
-  // Relations
-  answer Answer @relation(fields: [answerId], references: [id], onDelete: Cascade)
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  answer    Answer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([answerId, userId])
   @@map("answer_votes")
@@ -123,10 +110,8 @@ model NotesGroup {
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  // Relations
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  notes Note[]
+  notes       Note[]
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notes_groups")
 }
@@ -145,33 +130,29 @@ model Note {
   notesGroupId String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
-
-  // Relations
-  author      User        @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  notesGroup  NotesGroup  @relation(fields: [notesGroupId], references: [id], onDelete: Cascade)
+  author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  notesGroup   NotesGroup @relation(fields: [notesGroupId], references: [id], onDelete: Cascade)
 
   @@map("notes")
 }
 
 model Task {
-  id           String     @id @default(cuid())
-  title        String
-  description  String?
-  dueDate      DateTime
-  status       TaskStatus @default(NOT_STARTED)
-  priority     Priority   @default(MEDIUM)
-  subjectArea  String
-  tags         String[]   @default([])
+  id            String         @id @default(cuid())
+  title         String
+  description   String?
+  dueDate       DateTime
+  status        TaskStatus     @default(NOT_STARTED)
+  priority      Priority       @default(MEDIUM)
+  subjectArea   String
+  tags          String[]       @default([])
   estimatedTime Int?
-  notes        String?
-  completedAt  DateTime?
-  userId       String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  // Relations
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessions StudySession[]
+  notes         String?
+  completedAt   DateTime?
+  userId        String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sessions      StudySession[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
 }
@@ -180,7 +161,7 @@ model StudySession {
   id        String    @id @default(cuid())
   startTime DateTime
   endTime   DateTime?
-  duration  Int?      // in minutes
+  duration  Int?
   goal      String?
   notes     String?
   completed Boolean   @default(false)
@@ -188,47 +169,29 @@ model StudySession {
   taskId    String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
-
-  // Relations
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  task Task? @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  task      Task?     @relation(fields: [taskId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("study_sessions")
 }
 
-model UserAvailability {
-  id          String   @id @default(cuid())
-  userId      String
-  date        DateTime 
-  startTime   String 
-  endTime     String 
-
-  // Relations
-  user        User     @relation(fields: [userId], references: [id])
-
-  @@index([userId, date])
-}
-
-
 model Contest {
-  id           String        @id @default(cuid())
-  title        String
-  description  String
-  startTime    DateTime
-  endTime      DateTime
-  status       ContestStatus @default(UPCOMING)
-  difficulty   Difficulty    @default(MEDIUM)
-  participants Int           @default(0)
-  topics       String[]      @default([])
-  isVirtual    Boolean       @default(false)
-  eligibility  String?
-  organizerId  String
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-
-  // Relations
-  organizer     User                  @relation("ContestOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
+  id            String                @id @default(cuid())
+  title         String
+  description   String
+  startTime     DateTime
+  endTime       DateTime
+  status        ContestStatus         @default(UPCOMING)
+  difficulty    Difficulty            @default(MEDIUM)
+  participants  Int                   @default(0)
+  topics        String[]              @default([])
+  isVirtual     Boolean               @default(false)
+  eligibility   String?
+  organizerId   String
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @updatedAt
   registrations ContestRegistration[]
+  organizer     User                  @relation("ContestOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
 
   @@map("contests")
 }
@@ -239,34 +202,30 @@ model ContestRegistration {
   userId           String
   registrationTime DateTime @default(now())
   isVirtual        Boolean  @default(false)
-
-  // Relations
-  contest Contest @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  contest          Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([contestId, userId])
   @@map("contest_registrations")
 }
 
 model ModelTest {
-  id           String     @id @default(cuid())
-  title        String
-  description  String
-  timeLimit    Int        // in minutes
-  subjects     String[]   @default([])
-  topics       String[]   @default([])
-  difficulty   Difficulty @default(MEDIUM)
-  questions    Json       @default("[]")
-  isCustom     Boolean    @default(false)
-  passingScore Int
-  totalPoints  Int
-  createdById  String?
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  // Relations
-  createdBy User?         @relation("TestCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  attempts  TestAttempt[]
+  id                   String                 @id @default(cuid())
+  title                String
+  description          String
+  timeLimit            Int
+  subjects             String[]               @default([])
+  topics               String[]               @default([])
+  difficulty           Difficulty             @default(MEDIUM)
+  isCustom             Boolean                @default(false)
+  passingScore         Int
+  totalPoints          Int
+  createdById          String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  model_test_questions model_test_questions[]
+  createdBy            User?                  @relation("TestCreator", fields: [createdById], references: [id])
+  attempts             TestAttempt[]
 
   @@map("model_tests")
 }
@@ -276,7 +235,7 @@ model TestAttempt {
   status         AttemptStatus @default(IN_PROGRESS)
   startTime      DateTime      @default(now())
   endTime        DateTime?
-  timeSpent      Int?          // in seconds
+  timeSpent      Int?
   score          Int?
   correctAnswers Int?
   totalQuestions Int
@@ -285,50 +244,72 @@ model TestAttempt {
   testId         String
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
-
-  // Relations
-  user User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  test ModelTest @relation(fields: [testId], references: [id], onDelete: Cascade)
+  test           ModelTest     @relation(fields: [testId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("test_attempts")
 }
 
 model SavedItem {
-  id       String         @id @default(cuid())
+  id       String        @id @default(cuid())
   itemType SavedItemType
   itemId   String
-  tags     String[]       @default([])
+  tags     String[]      @default([])
   userId   String
-  savedAt  DateTime       @default(now())
-
-  // Relations
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  savedAt  DateTime      @default(now())
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, itemType, itemId])
   @@map("saved_items")
 }
 
 model Notification {
-  id            String           @id @default(cuid())
-  type          NotificationType
-  title         String
-  message       String
-  isRead        Boolean          @default(false)
-  relatedId     String?
-  relatedType   String?
-  actorId       String?
-  actorName     String?
-  actorAvatar   String?
-  userId        String
-  createdAt     DateTime         @default(now())
-
-  // Relations
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id          String           @id @default(cuid())
+  type        NotificationType
+  title       String
+  message     String
+  isRead      Boolean          @default(false)
+  relatedId   String?
+  relatedType String?
+  actorId     String?
+  actorName   String?
+  actorAvatar String?
+  userId      String
+  createdAt   DateTime         @default(now())
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
-// Enums
+model model_test_questions {
+  id             String         @id
+  modelTestId    String
+  testQuestionId String
+  order          Int
+  createdAt      DateTime       @default(now())
+  model_tests    ModelTest      @relation(fields: [modelTestId], references: [id], onDelete: Cascade)
+  test_questions test_questions @relation(fields: [testQuestionId], references: [id], onDelete: Cascade)
+
+  @@unique([modelTestId, testQuestionId])
+}
+
+model test_questions {
+  id                   String                 @id
+  question             String
+  explanation          String?
+  options              Json
+  correctAnswer        Int
+  subject              String
+  topics               String[]               @default([])
+  difficulty           Difficulty             @default(MEDIUM)
+  points               Int                    @default(5)
+  createdById          String?
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  model_test_questions model_test_questions[]
+  users                User?                  @relation(fields: [createdById], references: [id])
+}
+
 enum UserRole {
   STUDENT
   TEACHER
