@@ -142,7 +142,7 @@ model Task {
   id            String         @id @default(cuid())
   title         String
   description   String?
-  fileLink      String  // Optional link to a file or resource
+  fileLink      String?  // Optional link to a file or resource
   dueDate       DateTime
   status        TaskStatus     @default(NOT_STARTED)
   priority      Priority       @default(MEDIUM)

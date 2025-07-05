@@ -1,4 +1,4 @@
-***************Tasks API Documentation***************
+*************** Tasks API Documentation ***************
 
 
 1. Get All Tasks
@@ -15,14 +15,15 @@
       "id": "uuid",
       "title": "Task Title",
       "description": "Task description",
+      "fileLink": "/uploads/1234.png",    // or null
       "dueDate": "2025-07-04T00:00:00.000Z",
       "priority": "HIGH",
       "subjectArea": "Math",
-      "tags": ["urgent", "homework"],
-      "estimatedTime": 120,
-      "notes": "Some notes",
+      "estimatedTime": 120,               // in minutes
       "status": "NOT_STARTED",
-      "userId": "user-uuid"
+      "userId": "user-uuid",
+      "createdAt": "2025-06-01T12:00:00.000Z",
+      "updatedAt": "2025-06-02T12:00:00.000Z"
     }
   ]
 }
@@ -36,19 +37,7 @@
     Response (Success):
 
 {
-  "task": {
-    "id": "uuid",
-    "title": "Task Title",
-    "description": "Task description",
-    "dueDate": "2025-07-04T00:00:00.000Z",
-    "priority": "HIGH",
-    "subjectArea": "Math",
-    "tags": ["urgent"],
-    "estimatedTime": 120,
-    "notes": "Notes here",
-    "status": "IN_PROGRESS",
-    "userId": "user-uuid"
-  }
+  "task": { /* same shape as above */ }
 }
 
     Response (Not Found):
@@ -63,7 +52,7 @@
 
     Description: Create a new task for the authenticated user.
 
-    Request Body:
+    Request Body (multipart/form-data if uploading file):
 
 {
   "title": "New Task",
@@ -71,54 +60,30 @@
   "dueDate": "2025-07-05",
   "priority": "MEDIUM",
   "subjectArea": "Science",
-  "tags": ["study", "exam"],
-  "estimatedTime": 12, // in hours
+  "estimatedTime": 90            // in minutes
+  // file: (optional) file field named "file"
 }
 
     Response:
 
 {
   "message": "Task created successfully",
-  "task": {
-    "id": "uuid",
-    "title": "New Task",
-    "description": "Task details",
-    "dueDate": "2025-07-05T00:00:00.000Z",
-    "priority": "MEDIUM",
-    "subjectArea": "Science",
-    "tags": ["study", "exam"],
-    "estimatedTime": 90,
-    "notes": "Remember to review",
-    "status": "NOT_STARTED",
-    "userId": "user-uuid"
-  }
+  "task": { /* full task object as above */ }
 }
 
 4. Update Task
 
     Endpoint: PUT /:id
 
-    Description: Update an existing task by ID (must belong to the user).
+    Description: Update all editable fields of an existing task.
 
-    Request Body: Same as create task, all fields required.
+    Request Body: same as Create
 
     Response (Success):
 
 {
   "message": "Task updated successfully",
-  "task": {
-    "id": "uuid",
-    "title": "...",
-    "description": "...",
-    "dueDate": "2025-07-05T00:00:00.000Z",
-    "priority": "...",
-    "subjectArea": "...",
-    "tags": [...],
-    "estimatedTime": 90,
-    "notes": "...",
-    "status": "...",
-    "userId": "user-uuid"
-  }
+  "task": { /* full task object */ }
 }
 
     Response (Not Found):
@@ -129,9 +94,9 @@
 
 5. Update Task Status
 
-    Endpoint: PATCH /:id/status
+    Endpoint: PUT /:id/status
 
-    Description: Update the status of a task.
+    Description: Update only the status field of a task.
 
     Request Body:
 
@@ -146,8 +111,8 @@
   "task": {
     "id": "uuid",
     "status": "COMPLETED",
-    "completedAt": "2025-07-03T15:00:00.000Z",
-    // other task fields...
+    "completedAt": "2025-07-03T15:00:00.000Z",  // null if not set
+    // other fields omitted
   }
 }
 
@@ -157,10 +122,20 @@
   "error": "Task not found"
 }
 
-    Validation Errors:
-    If invalid status or invalid ID, returns HTTP 400 with validation error messages.
+6. Mark Task as Completed
 
-6. Delete Task
+    Endpoint: PUT /:id/complete
+
+    Description: Convenience endpoint to set status to COMPLETED.
+
+    Response:
+
+{
+  "message": "Task marked as completed",
+  "task": { /* full task object with status=COMPLETED */ }
+}
+
+7. Delete Task
 
     Endpoint: DELETE /:id
 
@@ -178,33 +153,32 @@
   "error": "Task not found"
 }
 
-7. Generate Schedule
+8. Generate Schedule
 
     Endpoint: POST /generate
 
-    Description: Generate a study schedule based on user's pending tasks and availability.
+    Description: Generate a study schedule based on pending tasks and today's availability.
 
     Process:
 
-        Retrieves tasks with status NOT_STARTED or IN_PROGRESS.
-
-        Fetches user's availability for today, or uses default time slots if none.
-
-        Calls an external Flask API to generate the schedule.
-
-        Saves generated study session in the database.
-
-    Request Body: None.
+     • Fetch NOT_STARTED/IN_PROGRESS tasks  
+     • Fetch user's availability or use defaults  
+     • Call external scheduling service  
+     • Store and return study sessions  
 
     Response (Success):
 
 {
-  "schedule": {
-    "taskId": "uuid",
-    "startTime": "2025-07-03T09:00:00.000Z",
-    "endTime": "2025-07-03T11:00:00.000Z",
-    "goal": "Complete chapter 5"
-  }
+  "message": "Schedule generated successfully",
+  "schedule": [
+    {
+      "taskId": "uuid",
+      "startTime": "2025-07-03T09:00:00.000Z",
+      "endTime":   "2025-07-03T11:00:00.000Z",
+      "goal":      "Complete chapter 5"
+    },
+    // ...
+  ]
 }
 
     Response (Errors):
@@ -225,7 +199,7 @@ or
   "error": "Invalid schedule response"
 }
 
-8. Get Today's Schedule
+9. Get Today's Schedule
 
     Endpoint: GET /today
 
@@ -240,9 +214,10 @@ or
       "userId": "user-uuid",
       "taskId": "task-uuid",
       "startTime": "2025-07-03T09:00:00.000Z",
-      "endTime": "2025-07-03T11:00:00.000Z",
-      "duration": 120,
-      "goal": "Complete chapter 5"
+      "endTime":   "2025-07-03T11:00:00.000Z",
+      "duration":  120,               // in minutes
+      "goal":      "Complete chapter 5",
+      "completed": false
     }
   ]
 }

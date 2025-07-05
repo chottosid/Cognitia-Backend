@@ -133,7 +133,7 @@ router.put("/:id", async (req, res, next) => {
 });
 
 // Update task status
-router.patch(
+router.put(
   "/:id/status",
   [
     validateUUID("id"),
@@ -173,6 +173,34 @@ router.patch(
     }
   }
 );
+// Mark task as completed
+router.put("/:id/complete", async (req, res, next) => {
+  try {
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+      select: { id: true },
+    });
+
+    if (!existingTask) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    const updatedTask = await prisma.task.update({
+      where: { id: req.params.id },
+      data: { status: "COMPLETED" },
+    });
+
+    res.json({
+      message: "Task marked as completed",
+      task: updatedTask,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Delete task
 router.delete(
@@ -238,7 +266,7 @@ router.post("/generate", async (req, res, next) => {
       now.getDate()
     );
 
-    const availability = await prisma.userAvailability.findMany({
+    const availability = await prisma.availability.findMany({
       where: {
         userId: req.user.id,
         date: todayDate,
@@ -333,7 +361,7 @@ router.post("/generate", async (req, res, next) => {
     const data = await response.json();
     // data is a list of schedules with taskId, startTime, endTime, goal
 
-    if (!response.ok || !data.schedule || !data.taskId) {
+    if (!response.ok) {
       return res
         .status(500)
         .json({ error: data.error || "Invalid schedule response" });
