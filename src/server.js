@@ -15,7 +15,12 @@ import tasksRoutes from "./routes/tasks.js";
 import modelTestRoutes from "./routes/modelTest.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
-dotenv.config();
+
+if (process.env.NODE_ENV == "test") {
+  dotenv.config({ path: ".env.test" });
+} else {
+  dotenv.config({ path: ".env" });
+}
 
 const app = express();
 const PORT = process.env.PORT;
