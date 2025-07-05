@@ -3,7 +3,7 @@ name: Test, Build and Deploy to Azure VM via SSH with Docker
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   test-build-deploy:
