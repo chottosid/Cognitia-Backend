@@ -21,6 +21,7 @@
     "helmet": "latest",
     "jsonwebtoken": "latest",
     "morgan": "latest",
+    "multer": "^2.0.1",
     "nodemailer": "7.0.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",

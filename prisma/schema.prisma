@@ -38,6 +38,8 @@ model User {
   tasks                Task[]
   testAttempts         TestAttempt[]
   test_questions       test_questions[]
+  availabilities       Availability[]
+  sessionFeedbacks     SessionFeedback[]
 
   @@map("users")
 }
@@ -140,16 +142,16 @@ model Task {
   id            String         @id @default(cuid())
   title         String
   description   String?
+  fileLink      String  // Optional link to a file or resource
   dueDate       DateTime
   status        TaskStatus     @default(NOT_STARTED)
   priority      Priority       @default(MEDIUM)
   subjectArea   String
-  tags          String[]       @default([])
-  estimatedTime Int?
-  completedAt  DateTime?
-  userId       String
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  estimatedTime Int?    // Estimated time in minutes
+  completedAt   DateTime?
+  userId        String
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   // Relations
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -161,10 +163,9 @@ model Task {
 model StudySession {
   id        String    @id @default(cuid())
   startTime DateTime
-  endTime   DateTime?
-  duration  Int?
+  endTime   DateTime
+  duration  Int     // Duration in minutes
   goal      String?
-  notes     String?
   completed Boolean   @default(false)
   userId    String
   taskId    String?
@@ -172,8 +173,31 @@ model StudySession {
   updatedAt DateTime  @updatedAt
   task      Task?     @relation(fields: [taskId], references: [id])
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessionFeedback      SessionFeedback?
 
   @@map("study_sessions")
+}
+
+model Availability {
+  id 	    String   @id @default(cuid())
+  startTime DateTime
+  endTime   DateTime
+  userId    String
+  
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("availabilities")
+}
+
+model SessionFeedback {
+  id                String   @id @default(uuid())
+  userId            String
+  sessionId         String   @unique
+  confidenceScore   Int
+  feedbackAt        DateTime
+
+  studysession      StudySession  @relation(fields: [sessionId], references: [id])
+  user              User      @relation(fields: [userId], references: [id])
+  @@map("session_feedback")
 }
 
 model Contest {

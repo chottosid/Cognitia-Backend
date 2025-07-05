@@ -1,5 +1,6 @@
 import express from "express";
 import { body, query } from "express-validator";
+import multer from "multer";
 import {
   handleValidationErrors,
   validateTask,
@@ -9,6 +10,12 @@ import {
 import { prisma } from "../lib/database.js";
 
 const router = express.Router();
+// upload middleware, keep the filename and save to /uploads directory
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, "uploads/"),
+  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
+});
+const upload = multer({ storage });
 
 // Get all tasks for authenticated user
 router.get("/", async (req, res, next) => {
@@ -45,7 +52,7 @@ router.get("/:id", async (req, res, next) => {
 });
 
 // Create new task
-router.post("/", async (req, res, next) => {
+router.post("/", upload.single("file"), async (req, res, next) => {
   try {
     const {
       title,
@@ -53,11 +60,9 @@ router.post("/", async (req, res, next) => {
       dueDate,
       priority,
       subjectArea,
-      tags = [],
       estimatedTime,
-      notes,
     } = req.body;
-
+    const file = req.file;
     const newTask = await prisma.task.create({
       data: {
         title,
@@ -65,10 +70,9 @@ router.post("/", async (req, res, next) => {
         dueDate: new Date(dueDate),
         priority,
         subjectArea,
-        tags,
         estimatedTime: estimatedTime || null,
-        notes: notes || null,
         userId: req.user.id,
+        fileLink: file ? `/uploads/${file.filename}` : null,
       },
     });
 
@@ -90,9 +94,7 @@ router.put("/:id", async (req, res, next) => {
       dueDate,
       priority,
       subjectArea,
-      tags,
       estimatedTime,
-      notes,
     } = req.body;
 
     // Check if task exists and user owns it
@@ -116,9 +118,8 @@ router.put("/:id", async (req, res, next) => {
         dueDate: new Date(dueDate),
         priority,
         subjectArea,
-        tags: tags || [],
         estimatedTime: estimatedTime !== undefined ? estimatedTime : undefined,
-        notes: notes !== undefined ? notes : undefined,
+        fileLink: req.file ? `/uploads/${req.file.filename}` : undefined,
       },
     });
 
@@ -158,16 +159,9 @@ router.patch(
         return res.status(404).json({ error: "Task not found" });
       }
 
-      const updateData = { status };
-      if (status === "COMPLETED") {
-        updateData.completedAt = new Date();
-      } else {
-        updateData.completedAt = null;
-      }
-
       const updatedTask = await prisma.task.update({
         where: { id: req.params.id },
-        data: updateData,
+        data: { status },
       });
 
       res.json({
@@ -261,16 +255,58 @@ router.post("/generate", async (req, res, next) => {
     if (availability.length === 0) {
       effectiveAvailability = [
         {
-          startTime: new Date(now.getFullYear(),now.getMonth(),now.getDate(),9,0,0),
-          endTime: new Date(now.getFullYear(),now.getMonth(),now.getDate(),12,0,0),
+          startTime: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            9,
+            0,
+            0
+          ),
+          endTime: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            12,
+            0,
+            0
+          ),
         },
         {
-          startTime: new Date(now.getFullYear(),now.getMonth(),now.getDate(),16,0,0),
-          endTime: new Date(now.getFullYear(),now.getMonth(),now.getDate(),19,0,0),
+          startTime: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            16,
+            0,
+            0
+          ),
+          endTime: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            19,
+            0,
+            0
+          ),
         },
         {
-          startTime: new Date(now.getFullYear(),now.getMonth(),now.getDate(),21,0,0),
-          endTime: new Date(now.getFullYear(),now.getMonth(),now.getDate(),23,0,0),
+          startTime: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            21,
+            0,
+            0
+          ),
+          endTime: new Date(
+            now.getFullYear(),
+            now.getMonth(),
+            now.getDate(),
+            23,
+            0,
+            0
+          ),
         },
       ];
     }
@@ -295,31 +331,39 @@ router.post("/generate", async (req, res, next) => {
     }
 
     const data = await response.json();
+    // data is a list of schedules with taskId, startTime, endTime, goal
 
     if (!response.ok || !data.schedule || !data.taskId) {
       return res
         .status(500)
         .json({ error: data.error || "Invalid schedule response" });
     }
-
-    const startTime = new Date(data.schedule.startTime);
-    const endTime = new Date(data.schedule.endTime);
-    const durationMinutes = (endTime - startTime) / 60000;
-
-    // 5. Save to study_sessions
-    await prisma.studySession.create({
-      data: {
+    // Remove old schedules from today to future
+    await prisma.studySession.deleteMany({
+      where: {
         userId: req.user.id,
-        taskId: data.taskId,
-        startTime,
-        endTime,
-        duration: durationMinutes,
-        goal: data.schedule.goal,
+        startTime: {
+          gte: todayDate,
+        },
       },
+    });
+    // 5. Save schedule to database
+    const scheduleEntries = data.map((entry) => ({
+      taskId: entry.taskId,
+      startTime: new Date(entry.startTime),
+      endTime: new Date(entry.endTime),
+      goal: entry.goal,
+      userId: req.user.id,
+    }));
+    await prisma.studySession.createMany({
+      data: scheduleEntries,
     });
 
     // 6. Return schedule to client
-    return res.json({ schedule: data.schedule });
+    res.json({
+      message: "Schedule generated successfully",
+      schedule: scheduleEntries,
+    });
   } catch (error) {
     return next(error);
   }
