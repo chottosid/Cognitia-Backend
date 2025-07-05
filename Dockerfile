@@ -19,3 +19,7 @@ EXPOSE 3001
 RUN npx prisma migrate deploy
 # Start the application
 CMD ["npm", "run", "start"]
+
+# Add to your Dockerfile
+ARG DATABASE_URL
+ENV DATABASE_URL=${DATABASE_URL}
