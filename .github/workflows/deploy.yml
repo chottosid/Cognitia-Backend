@@ -44,7 +44,7 @@ jobs:
       - name: Deploy via SSH with Docker-Compose
         run: |
           ssh -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
-            cd /home/seed/Cognitia/backend
+            cd /home/seed/Cognitia/Cognitia_Backend
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
             docker tag ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest cognitia-backend:latest
             docker-compose up -d --force-recreate
