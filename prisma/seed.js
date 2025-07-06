@@ -164,6 +164,7 @@ async function main() {
                 avatar: `/avatars/admin${i}.jpg`,
                 location: `${faker.address.city()}, ${faker.address.country()}`,
                 website: faker.internet.url(),
+                verified: true,
             }
         });
         users.push(admin);
@@ -182,6 +183,7 @@ async function main() {
                 location: `${faker.address.city()}, ${faker.address.country()}`,
                 website: faker.internet.url(),
                 avatar: `/avatars/teacher${i}.jpg`,
+                verified: true,
             }
         });
         users.push(teacher);
@@ -200,6 +202,7 @@ async function main() {
                 location: `${faker.address.city()}, ${faker.address.country()}`,
                 website: Math.random() > 0.7 ? faker.internet.url() : null,
                 avatar: `/avatars/student${i}.jpg`,
+                verified: true,
             }
         });
         users.push(student);

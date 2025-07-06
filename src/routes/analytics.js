@@ -7,7 +7,7 @@ import { prisma } from "../lib/database.js"
 const router = express.Router()
 
 // Get dashboard analytics
-router.get("/dashboard", authenticateToken, async (req, res) => {
+router.get("/dashboard/analytics", authenticateToken, async (req, res) => {
   try {
     const userId = req.user.id
 

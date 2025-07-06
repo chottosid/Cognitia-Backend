@@ -11,6 +11,7 @@ import { authenticateToken } from "./middleware/auth.js";
 // Import your route handlers
 import authRoutes from "./routes/auth.js";
 import analyticsRoutes from "./routes/analytics.js";
+import dashboardRoutes from "./routes/dashboard.js";
 import tasksRoutes from "./routes/tasks.js";
 import modelTestRoutes from "./routes/modelTest.js";
 import { connectDatabase } from "./lib/database.js";
@@ -46,16 +47,12 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/auth", authRoutes);
+app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
 app.use("/api/tasks", authenticateToken, tasksRoutes);
 app.use("/api/model-test", authenticateToken, modelTestRoutes);
 
-// I am adding this for compatibility
-// Alias for dashboard route to support /api/dashboard
-app.get("/api/dashboard", (req, res, next) => {
-  req.url = "/dashboard";
-  return analyticsRoutes(req, res, next);
-});
+// No alias needed; /api/dashboard now serves dashboard data, /api/analytics serves analytics endpoints
 // 404 handler
 
 // Error handling middleware

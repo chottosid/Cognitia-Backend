@@ -147,6 +147,7 @@ model Task {
   status        TaskStatus     @default(NOT_STARTED)
   priority      Priority       @default(MEDIUM)
   subjectArea   String
+  tags          String[]       @default([])
   estimatedTime Int?    // Estimated time in minutes
   completedAt   DateTime?
   userId        String
@@ -166,6 +167,7 @@ model StudySession {
   endTime   DateTime
   duration  Int     // Duration in minutes
   goal      String?
+  notes     String?
   completed Boolean   @default(false)
   userId    String
   taskId    String?
@@ -241,6 +243,7 @@ model ModelTest {
   timeLimit            Int
   subjects             String[]               @default([])
   topics               String[]               @default([])
+  questions            Json                   @default("[]")
   difficulty           Difficulty             @default(MEDIUM)
   isCustom             Boolean                @default(false)
   passingScore         Int

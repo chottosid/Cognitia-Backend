@@ -24,7 +24,17 @@ export const validatePassword = body("password")
   .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
   .withMessage("Password must contain at least one lowercase letter, one uppercase letter, and one number")
 
-export const validateUUID = (field = "id") => param(field).isUUID().withMessage(`${field} must be a valid UUID`)
+// Accept CUIDs (default for Prisma) or UUIDs
+export const validateCuidOrUUID = (field = "id") =>
+  param(field)
+    .custom((value) => {
+      // CUID regex: starts with 'c' and 24 chars long
+      const cuidRegex = /^c[a-z0-9]{24}$/
+      // UUID regex
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      return cuidRegex.test(value) || uuidRegex.test(value)
+    })
+    .withMessage(`${field} must be a valid CUID or UUID`)
 
 // Pagination validation
 export const validatePagination = [

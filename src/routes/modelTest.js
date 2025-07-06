@@ -3,7 +3,7 @@ import { body, query } from "express-validator";
 import {
   handleValidationErrors,
   validateTask,
-  validateUUID,
+  validateCuidOrUUID,
   validatePagination,
 } from "../middleware/validation.js";
 import { prisma } from "../lib/database.js";

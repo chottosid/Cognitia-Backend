@@ -4,12 +4,15 @@ import multer from "multer";
 import {
   handleValidationErrors,
   validateTask,
-  validateUUID,
+  validateCuidOrUUID,
   validatePagination,
 } from "../middleware/validation.js";
 import { prisma } from "../lib/database.js";
 
+import { authenticateToken } from "../middleware/auth.js";
 const router = express.Router();
+// Apply authentication to all routes in this router
+router.use(authenticateToken);
 // upload middleware, keep the filename and save to /uploads directory
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, "uploads/"),
@@ -31,8 +34,30 @@ router.get("/", async (req, res, next) => {
   }
 });
 
+// Get today's schedule (move above /:id to avoid route conflict)
+router.get("/today", async (req, res, next) => {
+  try {
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const sessions = await prisma.studySession.findMany({
+      where: {
+        userId: req.user.id,
+        startTime: {
+          gte: startOfDay,
+          lte: endOfDay,
+        },
+      },
+    });
+    res.json({ sessions });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get task by ID
-router.get("/:id", async (req, res, next) => {
+router.get("/:id", validateCuidOrUUID("id"), handleValidationErrors, async (req, res, next) => {
   try {
     const task = await prisma.task.findFirst({
       where: {
@@ -86,7 +111,7 @@ router.post("/", upload.single("file"), async (req, res, next) => {
 });
 
 // Update task
-router.put("/:id", async (req, res, next) => {
+router.put("/:id", validateCuidOrUUID("id"), handleValidationErrors, async (req, res, next) => {
   try {
     const {
       title,
@@ -136,7 +161,7 @@ router.put("/:id", async (req, res, next) => {
 router.put(
   "/:id/status",
   [
-    validateUUID("id"),
+    validateCuidOrUUID("id"),
     body("status")
       .isIn(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"])
       .withMessage("Invalid status"),
@@ -205,7 +230,7 @@ router.put("/:id/complete", async (req, res, next) => {
 // Delete task
 router.delete(
   "/:id",
-  [validateUUID("id"), handleValidationErrors],
+  [validateCuidOrUUID("id"), handleValidationErrors],
   async (req, res, next) => {
     try {
       // Check if task exists and user owns it
@@ -400,9 +425,9 @@ router.post("/generate", async (req, res, next) => {
 //get today's schedule
 router.get("/today", async (req, res, next) => {
   try {
-    const today = new Date();
-    const startOfDay = new Date(today.setHours(0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
     const sessions = await prisma.studySession.findMany({
       where: {
