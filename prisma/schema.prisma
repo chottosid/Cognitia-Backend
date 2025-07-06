@@ -56,6 +56,9 @@ model Question {
   authorId   String
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+
+
+
   answers    Answer[]
   votes      QuestionVote[]
   author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -71,6 +74,8 @@ model Answer {
   authorId   String
   createdAt  DateTime     @default(now())
   updatedAt  DateTime     @updatedAt
+
+
   votes      AnswerVote[]
   author     User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -84,6 +89,8 @@ model QuestionVote {
   questionId String
   userId     String
   createdAt  DateTime @default(now())
+
+  
   question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -97,6 +104,8 @@ model AnswerVote {
   answerId  String
   userId    String
   createdAt DateTime @default(now())
+
+
   answer    Answer   @relation(fields: [answerId], references: [id], onDelete: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 

@@ -13,6 +13,7 @@ import authRoutes from "./routes/auth.js";
 import analyticsRoutes from "./routes/analytics.js";
 import tasksRoutes from "./routes/tasks.js";
 import modelTestRoutes from "./routes/modelTest.js";
+import qnaRoutes from "./routes/qna.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
 
@@ -49,7 +50,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
 app.use("/api/tasks", authenticateToken, tasksRoutes);
 app.use("/api/model-test", authenticateToken, modelTestRoutes);
-
+app.use("/api/qna", authenticateToken, qnaRoutes);
 // I am adding this for compatibility
 // Alias for dashboard route to support /api/dashboard
 app.get("/api/dashboard", (req, res, next) => {
