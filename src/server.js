@@ -14,6 +14,7 @@ import analyticsRoutes from "./routes/analytics.js";
 import dashboardRoutes from "./routes/dashboard.js";
 import tasksRoutes from "./routes/tasks.js";
 import modelTestRoutes from "./routes/modelTest.js";
+import notesRoutes from "./routes/notes.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
 
@@ -50,7 +51,9 @@ app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
 app.use("/api/tasks", authenticateToken, tasksRoutes);
+
 app.use("/api/model-test", authenticateToken, modelTestRoutes);
+app.use("/api/notes", notesRoutes);
 
 // No alias needed; /api/dashboard now serves dashboard data, /api/analytics serves analytics endpoints
 // 404 handler

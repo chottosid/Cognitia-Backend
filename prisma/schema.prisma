@@ -123,6 +123,7 @@ model Note {
   title        String
   visibility   Visibility @default(PRIVATE)
   files        Json       @default("[]")
+  tags         String[]   @default([])
   viewCount    Int        @default(0)
   likeCount    Int        @default(0)
   dislikeCount Int        @default(0)
