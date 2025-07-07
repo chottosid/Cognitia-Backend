@@ -133,7 +133,25 @@ describe("Model Test Routes", () => {
 
   describe("GET /api/model-test/attempt/:id", () => {
     it("should return test attempt with questions", async () => {
-      mockPrisma.testAttempt.findUnique.mockResolvedValue(mockTestAttempt);
+      // Make sure mockTestAttempt includes the necessary structure expected by the endpoint
+      const structuredMockTestAttempt = {
+        ...mockTestAttempt,
+        test: {
+          ...mockTestAttempt.test,
+          model_test_questions: [
+            {
+              test_questions: mockTestQuestions[0],
+            },
+            {
+              test_questions: mockTestQuestions[1],
+            },
+          ],
+        },
+      };
+
+      mockPrisma.testAttempt.findUnique.mockResolvedValue(
+        structuredMockTestAttempt
+      );
 
       const response = await request(app)
         .get("/api/model-test/attempt/clh7x8y9z0006abc123def456")
@@ -244,17 +262,43 @@ describe("Model Test Routes", () => {
     it("should calculate correct score", async () => {
       const testData = {
         testId: "clh7x8y9z0001abc123def456",
-        answers: { clh7x8y9z0002abc123def456: 1, clh7x8y9z0003abc123def456: 1 }, // Both correct
+        answers: { clh7x8y9z0002abc123def456: 1, clh7x8y9z0003abc123def456: 0 }, // One correct, one incorrect
         timeSpent: 3600,
       };
 
       mockPrisma.modelTest.findUnique.mockResolvedValue(mockModelTests[0]);
+
+      // Update the mockModelTestQuestions so that only the first question has a correct answer of 1
+      // and the second question has a correct answer of 2 (making the user's answer incorrect)
+      const updatedMockQuestions = [
+        {
+          ...mockModelTestQuestions[0],
+          test_questions: {
+            ...mockModelTestQuestions[0].test_questions,
+            correctAnswer: 1,
+            points: 5,
+          },
+        },
+        {
+          ...mockModelTestQuestions[1],
+          test_questions: {
+            ...mockModelTestQuestions[1].test_questions,
+            correctAnswer: 2, // Different from user's answer of 0
+            points: 10,
+          },
+        },
+      ];
+
       mockPrisma.model_test_questions.findMany.mockResolvedValue(
-        mockModelTestQuestions
+        updatedMockQuestions
       );
+
       mockPrisma.testAttempt.create.mockResolvedValue({
         id: "clh7x8y9z0012abc123def456",
         ...testData,
+        score: 5,
+        correctAnswers: 1,
+        totalQuestions: 2,
       });
 
       await request(app)
@@ -264,8 +308,8 @@ describe("Model Test Routes", () => {
 
       expect(mockPrisma.testAttempt.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          score: 15, // 5 + 10 points
-          correctAnswers: 2,
+          score: 5, // Only first question correct (5 points)
+          correctAnswers: 1,
           totalQuestions: 2,
         }),
       });

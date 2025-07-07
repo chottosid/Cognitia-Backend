@@ -220,6 +220,7 @@ router.get("/generate", async (req, res, next) => {
       taskId: entry.taskId,
       startTime: new Date(entry.startTime),
       endTime: new Date(entry.endTime),
+      duration: entry.duration,
       goal: entry.goal,
       userId: req.user.id,
     }));
