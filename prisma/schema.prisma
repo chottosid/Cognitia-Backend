@@ -165,7 +165,6 @@ model StudySession {
   id        String    @id @default(cuid())
   startTime DateTime
   endTime   DateTime
-  duration  Int     // Duration in minutes
   goal      String?
   notes     String?
   completed Boolean   @default(false)

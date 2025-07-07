@@ -59,9 +59,13 @@ app.use("/api/model-test", authenticateToken, modelTestRoutes);
 app.use(errorHandler);
 
 // Swagger documentation
-app.use("/api/docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  explorer: true
-}));
+app.use(
+  "/api/docs",
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+  })
+);
 
 connectDatabase()
   .then(() => {
