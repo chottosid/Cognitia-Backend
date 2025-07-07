@@ -27,3 +27,11 @@ Thumbs.db
 
 # uploads
 uploads/
+
+# Test coverage
+coverage/
+*.lcov
+
+# Test database
+test.db
+prisma/test.db

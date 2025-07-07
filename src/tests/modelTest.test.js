@@ -43,15 +43,15 @@ describe("Model Test Routes", () => {
       mockPrisma.modelTest.findUnique.mockResolvedValue(mockModelTests[0]);
 
       const response = await request(app)
-        .get("/api/model-test/test-1")
+        .get("/api/model-test/clh7x8y9z0001abc123def456")
         .expect(200);
 
       expect(response.body).toHaveProperty("modelTest");
-      expect(response.body.modelTest.id).toBe("test-1");
+      expect(response.body.modelTest.id).toBe("clh7x8y9z0001abc123def456");
       expect(response.body.modelTest.title).toBe("Mathematics Test");
 
       expect(mockPrisma.modelTest.findUnique).toHaveBeenCalledWith({
-        where: { id: "test-1" },
+        where: { id: "clh7x8y9z0001abc123def456" },
       });
     });
 
@@ -59,7 +59,7 @@ describe("Model Test Routes", () => {
       mockPrisma.modelTest.findUnique.mockResolvedValue(null);
 
       const response = await request(app)
-        .get("/api/model-test/non-existent")
+        .get("/api/model-test/clh7x8y9z0008abc123def456")
         .expect(404);
 
       expect(response.body).toHaveProperty("error", "Test not found");
@@ -73,12 +73,15 @@ describe("Model Test Routes", () => {
       );
 
       const response = await request(app)
-        .get("/api/model-test/test-1/questions")
+        .get("/api/model-test/clh7x8y9z0001abc123def456/questions")
         .expect(200);
 
       expect(response.body).toHaveProperty("questions");
       expect(response.body.questions).toHaveLength(2);
-      expect(response.body.questions[0]).toHaveProperty("id", "q1");
+      expect(response.body.questions[0]).toHaveProperty(
+        "id",
+        "clh7x8y9z0002abc123def456"
+      );
       expect(response.body.questions[0]).toHaveProperty(
         "question",
         "What is 2 + 2?"
@@ -87,7 +90,7 @@ describe("Model Test Routes", () => {
       expect(response.body.questions[0]).toHaveProperty("correctAnswer", 1);
 
       expect(mockPrisma.model_test_questions.findMany).toHaveBeenCalledWith({
-        where: { modelTestId: "test-1" },
+        where: { modelTestId: "clh7x8y9z0001abc123def456" },
         orderBy: { order: "asc" },
         include: {
           test_questions: true,
@@ -111,7 +114,7 @@ describe("Model Test Routes", () => {
       );
 
       const response = await request(app)
-        .get("/api/model-test/test-1/questions")
+        .get("/api/model-test/clh7x8y9z0001abc123def456/questions")
         .expect(200);
 
       expect(response.body.questions[0].options).toEqual(["3", "4", "5", "6"]);
@@ -121,7 +124,7 @@ describe("Model Test Routes", () => {
       mockPrisma.model_test_questions.findMany.mockResolvedValue([]);
 
       const response = await request(app)
-        .get("/api/model-test/test-1/questions")
+        .get("/api/model-test/clh7x8y9z0001abc123def456/questions")
         .expect(200);
 
       expect(response.body.questions).toEqual([]);
@@ -133,11 +136,11 @@ describe("Model Test Routes", () => {
       mockPrisma.testAttempt.findUnique.mockResolvedValue(mockTestAttempt);
 
       const response = await request(app)
-        .get("/api/model-test/attempt/attempt-1")
+        .get("/api/model-test/attempt/clh7x8y9z0006abc123def456")
         .expect(200);
 
       expect(response.body).toHaveProperty("attempt");
-      expect(response.body.attempt.id).toBe("attempt-1");
+      expect(response.body.attempt.id).toBe("clh7x8y9z0006abc123def456");
       expect(response.body.attempt.test).toHaveProperty("questions");
       expect(response.body.attempt.test.questions).toHaveLength(2);
       expect(response.body.attempt.test).not.toHaveProperty(
@@ -145,7 +148,7 @@ describe("Model Test Routes", () => {
       );
 
       expect(mockPrisma.testAttempt.findUnique).toHaveBeenCalledWith({
-        where: { id: "attempt-1" },
+        where: { id: "clh7x8y9z0006abc123def456" },
         include: {
           test: {
             include: {
@@ -163,7 +166,7 @@ describe("Model Test Routes", () => {
       mockPrisma.testAttempt.findUnique.mockResolvedValue(null);
 
       const response = await request(app)
-        .get("/api/model-test/attempt/non-existent")
+        .get("/api/model-test/attempt/clh7x8y9z0009abc123def456")
         .expect(404);
 
       expect(response.body).toHaveProperty("error", "Attempt not found");
@@ -173,8 +176,8 @@ describe("Model Test Routes", () => {
   describe("POST /api/model-test/attempt", () => {
     it("should create a new test attempt", async () => {
       const testData = {
-        testId: "test-1",
-        answers: { q1: 1, q2: 0 },
+        testId: "clh7x8y9z0001abc123def456",
+        answers: { clh7x8y9z0002abc123def456: 1, clh7x8y9z0003abc123def456: 0 },
         timeSpent: 3600,
       };
 
@@ -183,7 +186,7 @@ describe("Model Test Routes", () => {
         mockModelTestQuestions
       );
       mockPrisma.testAttempt.create.mockResolvedValue({
-        id: "new-attempt-1",
+        id: "clh7x8y9z0010abc123def456",
         ...testData,
       });
 
@@ -192,11 +195,14 @@ describe("Model Test Routes", () => {
         .send(testData)
         .expect(200);
 
-      expect(response.body).toHaveProperty("attemptId", "new-attempt-1");
+      expect(response.body).toHaveProperty(
+        "attemptId",
+        "clh7x8y9z0010abc123def456"
+      );
 
       expect(mockPrisma.testAttempt.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
-          testId: "test-1",
+          testId: "clh7x8y9z0001abc123def456",
           userId: "user-123",
           answers: JSON.stringify(testData.answers),
           timeSpent: 3600,
@@ -207,8 +213,11 @@ describe("Model Test Routes", () => {
 
     it("should handle string answers", async () => {
       const testData = {
-        testId: "test-1",
-        answers: JSON.stringify({ q1: 1, q2: 0 }),
+        testId: "clh7x8y9z0001abc123def456",
+        answers: JSON.stringify({
+          clh7x8y9z0002abc123def456: 1,
+          clh7x8y9z0003abc123def456: 0,
+        }),
         timeSpent: 3600,
       };
 
@@ -217,7 +226,7 @@ describe("Model Test Routes", () => {
         mockModelTestQuestions
       );
       mockPrisma.testAttempt.create.mockResolvedValue({
-        id: "new-attempt-2",
+        id: "clh7x8y9z0011abc123def456",
         ...testData,
       });
 
@@ -226,13 +235,16 @@ describe("Model Test Routes", () => {
         .send(testData)
         .expect(200);
 
-      expect(response.body).toHaveProperty("attemptId", "new-attempt-2");
+      expect(response.body).toHaveProperty(
+        "attemptId",
+        "clh7x8y9z0011abc123def456"
+      );
     });
 
     it("should calculate correct score", async () => {
       const testData = {
-        testId: "test-1",
-        answers: { q1: 1, q2: 0 }, // Both correct
+        testId: "clh7x8y9z0001abc123def456",
+        answers: { clh7x8y9z0002abc123def456: 1, clh7x8y9z0003abc123def456: 1 }, // Both correct
         timeSpent: 3600,
       };
 
@@ -241,7 +253,7 @@ describe("Model Test Routes", () => {
         mockModelTestQuestions
       );
       mockPrisma.testAttempt.create.mockResolvedValue({
-        id: "new-attempt-3",
+        id: "clh7x8y9z0012abc123def456",
         ...testData,
       });
 
@@ -295,8 +307,8 @@ describe("Model Test Routes", () => {
       mockPrisma.modelTest.findUnique.mockResolvedValue(null);
 
       const testData = {
-        testId: "non-existent",
-        answers: { q1: 1 },
+        testId: "clh7x8y9z0013abc123def456",
+        answers: { clh7x8y9z0002abc123def456: 1 },
       };
 
       const response = await request(app)
@@ -314,9 +326,9 @@ describe("Model Test Routes", () => {
       noAuthApp.use("/api/model-test", modelTestRoutes);
 
       const testData = {
-        testId: "test-1",
+        testId: "clh7x8y9z0001abc123def456",
         userId: "manual-user-123",
-        answers: { q1: 1 },
+        answers: { clh7x8y9z0002abc123def456: 1 },
       };
 
       mockPrisma.modelTest.findUnique.mockResolvedValue(mockModelTests[0]);
@@ -324,7 +336,7 @@ describe("Model Test Routes", () => {
         mockModelTestQuestions[0],
       ]);
       mockPrisma.testAttempt.create.mockResolvedValue({
-        id: "new-attempt-4",
+        id: "clh7x8y9z0014abc123def456",
         ...testData,
       });
 
@@ -333,7 +345,10 @@ describe("Model Test Routes", () => {
         .send(testData)
         .expect(200);
 
-      expect(response.body).toHaveProperty("attemptId", "new-attempt-4");
+      expect(response.body).toHaveProperty(
+        "attemptId",
+        "clh7x8y9z0014abc123def456"
+      );
       expect(mockPrisma.testAttempt.create).toHaveBeenCalledWith({
         data: expect.objectContaining({
           userId: "manual-user-123",
