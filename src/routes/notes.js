@@ -1,27 +1,18 @@
-import express from "express"
-import { body, query } from "express-validator"
-import { authenticateToken } from "../middleware/auth.js"
-import { handleValidationErrors, validateCuidOrUUID } from "../middleware/validation.js"
-import { prisma } from "../lib/database.js"
-import multer from "multer"
-import path from "path"
+import express from "express";
+import { body, query } from "express-validator";
+import { authenticateToken } from "../middleware/auth.js";
+import {
+  handleValidationErrors,
+  validateCuidOrUUID,
+} from "../middleware/validation.js";
+import { prisma } from "../lib/database.js";
+import multer from "multer";
+import path from "path";
 
-const router = express.Router()
+const router = express.Router();
 
-// Set up multer for file uploads
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(process.cwd(), "uploads"))
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9)
-    cb(null, uniqueSuffix + '-' + file.originalname)
-  }
-})
-const upload = multer({ storage })
-
-// Get all notes (simplified for frontend)
-router.get("/", authenticateToken, async (req, res) => {
+// Get all notes
+router.get("/", async (req, res) => {
   try {
     // Get both user's notes and public notes
     const [myNotes, publicNotes] = await Promise.all([
@@ -31,7 +22,7 @@ router.get("/", authenticateToken, async (req, res) => {
           author: { select: { id: true, name: true, avatar: true } },
           notesGroup: { select: { id: true, name: true } },
         },
-        orderBy: { updatedAt: "desc" }
+        orderBy: { updatedAt: "desc" },
       }),
       prisma.note.findMany({
         where: { visibility: "PUBLIC" },
@@ -39,13 +30,13 @@ router.get("/", authenticateToken, async (req, res) => {
           author: { select: { id: true, name: true, avatar: true } },
           notesGroup: { select: { id: true, name: true } },
         },
-        orderBy: { updatedAt: "desc" }
-      })
+        orderBy: { updatedAt: "desc" },
+      }),
     ]);
 
     // Deduplicate notes by id
     const notesMap = new Map();
-    [...myNotes, ...publicNotes].forEach(note => {
+    [...myNotes, ...publicNotes].forEach((note) => {
       notesMap.set(note.id, note);
     });
     const uniqueNotes = Array.from(notesMap.values());
@@ -60,7 +51,7 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 
 // Get user's notes only
-router.get("/my", authenticateToken, async (req, res) => {
+router.get("/my", async (req, res) => {
   try {
     const notes = await prisma.note.findMany({
       where: { authorId: req.user.id },
@@ -68,7 +59,7 @@ router.get("/my", authenticateToken, async (req, res) => {
         author: { select: { id: true, name: true, avatar: true } },
         notesGroup: { select: { id: true, name: true } },
       },
-      orderBy: { updatedAt: "desc" }
+      orderBy: { updatedAt: "desc" },
     });
 
     res.json({ notes });
@@ -79,21 +70,21 @@ router.get("/my", authenticateToken, async (req, res) => {
 });
 
 // Get recent notes (modified for frontend)
-router.get("/recent", authenticateToken, async (req, res) => {
+router.get("/recent", async (req, res) => {
   try {
     const recentNotes = await prisma.note.findMany({
       where: { authorId: req.user.id },
       orderBy: { updatedAt: "desc" },
-      take: 12, // Changed from 5 to 12 to match frontend
+      take: 12,
       include: {
         notesGroup: { select: { name: true } },
       },
     });
 
     res.json({
-      notes: recentNotes.map(note => ({
+      notes: recentNotes.map((note) => ({
         ...note,
-        groupName: note.notesGroup?.name || null
+        groupName: note.notesGroup?.name || null,
       })),
     });
   } catch (error) {
@@ -102,7 +93,7 @@ router.get("/recent", authenticateToken, async (req, res) => {
 });
 
 // Get notes groups (updated for frontend)
-router.get("/groups", authenticateToken, async (req, res) => {
+router.get("/groups", async (req, res) => {
   try {
     const groups = await prisma.notesGroup.findMany({
       where: { userId: req.user.id },
@@ -114,11 +105,11 @@ router.get("/groups", authenticateToken, async (req, res) => {
             title: true,
             updatedAt: true,
             visibility: true,
-            rating: true
+            rating: true,
           },
-          orderBy: { updatedAt: "desc" }
-        }
-      }
+          orderBy: { updatedAt: "desc" },
+        },
+      },
     });
 
     res.json({ groups });
@@ -132,8 +123,10 @@ router.get("/groups", authenticateToken, async (req, res) => {
 router.post(
   "/groups",
   [
-    authenticateToken,
-    body("name").trim().isLength({ min: 1, max: 100 }).withMessage("Name must be between 1 and 100 characters"),
+    body("name")
+      .trim()
+      .isLength({ min: 1, max: 100 })
+      .withMessage("Name must be between 1 and 100 characters"),
     body("description")
       .optional()
       .trim()
@@ -145,6 +138,16 @@ router.post(
     try {
       const { name, description } = req.body;
 
+      // Check if group already exists
+      const existingGroup = await prisma.notesGroup.findFirst({
+        where: { name, userId: req.user.id },
+      });
+      if (existingGroup) {
+        return res
+          .status(409)
+          .json({ error: "Notes group with this name already exists" });
+      }
+      // Create new notes group
       const group = await prisma.notesGroup.create({
         data: {
           name,
@@ -165,95 +168,63 @@ router.post(
 );
 
 // Get note by ID
-router.get("/:id", [validateCuidOrUUID("id"), handleValidationErrors], authenticateToken, async (req, res) => {
-  // Debug log incoming request
-  console.log(`[GET /api/notes/:id] id:`, req.params.id, 'user:', req.user?.id);
-  try {
-    // Fetch note and log all relevant fields for debugging
-    const note = await prisma.note.findUnique({
-      where: { id: req.params.id },
-      include: {
-        author: { select: { id: true, name: true, avatar: true } },
-        notesGroup: { select: { id: true, name: true } },
-      },
-    });
-    console.log('[DEBUG] Note found:', note);
-    if (!note) {
-      console.log('[DEBUG] Note not found in DB for id:', req.params.id);
-      return res.status(404).json({ error: "Note not found" });
+router.get(
+  "/:id",
+  [validateCuidOrUUID("id"), handleValidationErrors],
+  async (req, res) => {
+    try {
+      // Fetch note and log all relevant fields for debugging
+      const note = await prisma.note.findUnique({
+        where: { id: req.params.id },
+        include: {
+          author: { select: { id: true, name: true, avatar: true } },
+          notesGroup: { select: { id: true, name: true } },
+        },
+      });
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+      if (note.visibility === "PRIVATE" && note.authorId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      res.json({ note });
+    } catch (error) {
+      console.error("Get note error:", error);
+      res.status(500).json({ error: "Failed to fetch note" });
     }
-    // Log visibility and author for debugging
-    console.log('[DEBUG] Note visibility:', note.visibility, 'authorId:', note.authorId, 'request user:', req.user.id);
-    // Check visibility permissions
-    if (note.visibility === "PRIVATE" && note.authorId !== req.user.id) {
-      console.log('[DEBUG] Access denied: note is private and user is not the author');
-      return res.status(403).json({ error: "Access denied" });
-    }
-    // Increment view count
-    await prisma.note.update({
-      where: { id: note.id },
-      data: { viewCount: { increment: 1 } },
-    });
-    res.json({ note });
-  } catch (error) {
-    console.error("Get note error:", error);
-    res.status(500).json({ error: "Failed to fetch note" });
   }
-});
-router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
+);
+
+router.post("/", async (req, res) => {
   try {
     const { title, notesGroupId, visibility, tags } = req.body;
-    
+
     // Check if notes group exists and belongs to user
-    const notesGroup = await prisma.notesGroup.findUnique({ 
-      where: { id: notesGroupId } 
+    const notesGroup = await prisma.notesGroup.findUnique({
+      where: { id: notesGroupId },
     });
-    
+
     if (!notesGroup) {
       return res.status(404).json({ error: "Notes group not found" });
     }
     if (notesGroup.userId !== req.user.id) {
-      return res.status(403).json({ error: "Not authorized to add notes to this group" });
+      return res
+        .status(403)
+        .json({ error: "Not authorized to add notes to this group" });
     }
 
-
-
-    // Debug log incoming fields
-    console.log("[POST /api/notes] Incoming fields:", {
-      title,
-      notesGroupId,
-      visibility,
-      tags,
-      files: req.files && req.files.map(f => f.originalname)
-    });
-
-    // Prepare files metadata and parse JSON files
-    const files = await Promise.all(
-      (req.files || []).map(async (file) => {
-        const fileMeta = {
-          originalname: file.originalname,
-          filename: file.filename,
-          mimetype: file.mimetype,
-          size: file.size,
-          path: file.path
-        };
-        // If file is JSON, read and parse content
-        if (
-          file.mimetype === "application/json" ||
-          file.originalname.toLowerCase().endsWith(".json")
-        ) {
-          const fs = await import("fs/promises");
-          try {
-            const contentRaw = await fs.readFile(file.path, "utf8");
-            fileMeta.content = JSON.parse(contentRaw);
-          } catch (err) {
-            fileMeta.content = null;
-            fileMeta.contentError = "Failed to parse JSON: " + err.message;
-          }
-        }
-        return fileMeta;
-      })
-    );
+    // Handle file upload (if any)
+    let fileBuffer = null;
+    if (req.file) {
+      const fs = await import("fs/promises");
+      try {
+        fileBuffer = await fs.readFile(req.file.path);
+      } catch (err) {
+        return res
+          .status(500)
+          .json({ error: "Failed to process uploaded file" });
+      }
+    }
 
     const note = await prisma.note.create({
       data: {
@@ -261,13 +232,8 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
         notesGroupId,
         title,
         visibility: visibility.toUpperCase(),
-        files,
+        file: fileBuffer,
         tags: tags || [],
-        viewCount: 0,
-        likeCount: 0,
-        dislikeCount: 0,
-        rating: 0,
-        ratingCount: 0,
       },
     });
 
@@ -281,67 +247,68 @@ router.post("/", authenticateToken, upload.array("files"), async (req, res) => {
   }
 });
 
-// Get notes groups (updated for frontend)
-router.get("/groups", authenticateToken, async (req, res) => {
+// Delete a note
+router.delete("/:id", authenticateToken, async (req, res) => {
   try {
-    const groups = await prisma.notesGroup.findMany({
-      where: { userId: req.user.id },
-      orderBy: { createdAt: "desc" },
-      include: {
-        notes: {
-          select: {
-            id: true,
-            title: true,
-            updatedAt: true,
-            visibility: true,
-            rating: true
-          },
-          orderBy: { updatedAt: "desc" }
-        }
-      }
+    const { id } = req.params;
+
+    // Check if the note exists and belongs to the user
+    const note = await prisma.note.findUnique({
+      where: { id },
     });
 
-    res.json({ groups });
+    if (!note) {
+      return res.status(404).json({ error: "Note not found" });
+    }
+
+    if (note.authorId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this note" });
+    }
+
+    // Delete the note
+    await prisma.note.delete({
+      where: { id },
+    });
+
+    res.status(200).json({ message: "Note deleted successfully" });
   } catch (error) {
-    console.error("Get notes groups error:", error);
-    res.status(500).json({ error: "Failed to fetch notes groups" });
+    console.error("Delete note error:", error);
+    res.status(500).json({ error: "Failed to delete note" });
   }
 });
 
-// Create notes group (unchanged but included for completeness)
-router.post(
-  "/groups",
-  [
-    authenticateToken,
-    body("name").trim().isLength({ min: 1, max: 100 }).withMessage("Name must be between 1 and 100 characters"),
-    body("description")
-      .optional()
-      .trim()
-      .isLength({ max: 500 })
-      .withMessage("Description must be less than 500 characters"),
-    handleValidationErrors,
-  ],
-  async (req, res) => {
-    try {
-      const { name, description } = req.body;
+// Delete a notes group
+router.delete("/groups/:id", authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
 
-      const group = await prisma.notesGroup.create({
-        data: {
-          name,
-          description: description || "",
-          userId: req.user.id,
-        },
-      });
+    // Check if the notes group exists and belongs to the user
+    const notesGroup = await prisma.notesGroup.findUnique({
+      where: { id },
+    });
 
-      res.status(201).json({
-        message: "Notes group created successfully",
-        group,
-      });
-    } catch (error) {
-      console.error("Create notes group error:", error);
-      res.status(500).json({ error: "Failed to create notes group" });
+    if (!notesGroup) {
+      return res.status(404).json({ error: "Notes group not found" });
     }
+
+    if (notesGroup.userId !== req.user.id) {
+      return res
+        .status(403)
+        .json({ error: "Not authorized to delete this notes group" });
+    }
+
+    // Delete the notes group (cascades to associated notes)
+    await prisma.notesGroup.delete({
+      where: { id },
+    });
+
+    res.status(200).json({ message: "Notes group deleted successfully" });
+  } catch (error) {
+    console.error("Delete notes group error:", error);
+    res.status(500).json({ error: "Failed to delete notes group" });
   }
-);
+});
 
 export default router;

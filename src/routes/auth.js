@@ -10,6 +10,8 @@ import {
   validateEmail,
   validatePassword,
 } from "../middleware/validation.js"
+
+
 import { prisma } from "../lib/database.js"
 
 const router = express.Router()

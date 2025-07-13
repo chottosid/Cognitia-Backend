@@ -168,4 +168,65 @@ function formatRelativeTime(date) {
   return `${diffInMonths} month${diffInMonths === 1 ? "" : "s"} ago`
 }
 
+
+// get user's data
+
+router.get("/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        email: true,
+        avatar: true,
+        bio: true,
+        institution: true,
+        graduationYear: true,
+        major: true,
+        grade: true,
+        location: true,
+        website: true,
+      },
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: "User not found" })
+    }
+
+    res.json(user)
+  }
+  catch (error) {
+    console.error("Get user data error:", error)
+    res.status(500).json({ error: "Failed to fetch user data" })
+  }
+})
+
+// Update user's data
+router.put("/me", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.id
+    const { bio, institution, graduationYear, major, grade, location, website } = req.body
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        bio,
+        institution,
+        graduationYear,
+        major,
+        grade,
+        location,
+        website,
+      },
+    })
+
+    res.json(updatedUser)
+  } catch (error) {
+    console.error("Update user data error:", error)
+    res.status(500).json({ error: "Failed to update user data" })
+  }
+})
+
 export default router
+

@@ -9,16 +9,8 @@ import {
 } from "../middleware/validation.js";
 import { prisma } from "../lib/database.js";
 
-import { authenticateToken } from "../middleware/auth.js";
 const router = express.Router();
-// Apply authentication to all routes in this router
-router.use(authenticateToken);
-// upload middleware, keep the filename and save to /uploads directory
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, "uploads/"),
-  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname),
-});
-const upload = multer({ storage });
+const upload = multer(); // Use memory storage for multer
 
 // Get all tasks for authenticated user
 router.get("/", async (req, res, next) => {
@@ -314,7 +306,9 @@ router.post("/", upload.single("file"), async (req, res, next) => {
       subjectArea,
       estimatedTime,
     } = req.body;
-    const file = req.file;
+
+    const fileBuffer = req.file ? req.file.buffer : null;
+
     const newTask = await prisma.task.create({
       data: {
         title,
@@ -324,7 +318,7 @@ router.post("/", upload.single("file"), async (req, res, next) => {
         subjectArea,
         estimatedTime: estimatedTime || null,
         userId: req.user.id,
-        fileLink: file ? `/uploads/${file.filename}` : null,
+        file: fileBuffer, // Store file directly in the database
       },
     });
 
@@ -338,57 +332,52 @@ router.post("/", upload.single("file"), async (req, res, next) => {
 });
 
 // Update task
-router.put(
-  "/:id",
-  validateCuidOrUUID("id"),
-  handleValidationErrors,
-  async (req, res, next) => {
-    try {
-      const {
+router.put("/:id", upload.single("file"), async (req, res, next) => {
+  try {
+    const {
+      title,
+      description,
+      dueDate,
+      priority,
+      subjectArea,
+      estimatedTime,
+    } = req.body;
+
+    const fileBuffer = req.file ? req.file.buffer : undefined;
+
+    const existingTask = await prisma.task.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+      select: { id: true },
+    });
+
+    if (!existingTask) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    const updatedTask = await prisma.task.update({
+      where: { id: req.params.id },
+      data: {
         title,
-        description,
-        dueDate,
+        description: description || null,
+        dueDate: new Date(dueDate),
         priority,
         subjectArea,
-        estimatedTime,
-      } = req.body;
+        estimatedTime: estimatedTime !== undefined ? estimatedTime : undefined,
+        file: fileBuffer, // Update file if provided
+      },
+    });
 
-      // Check if task exists and user owns it
-      const existingTask = await prisma.task.findFirst({
-        where: {
-          id: req.params.id,
-          userId: req.user.id,
-        },
-        select: { id: true },
-      });
-
-      if (!existingTask) {
-        return res.status(404).json({ error: "Task not found" });
-      }
-
-      const updatedTask = await prisma.task.update({
-        where: { id: req.params.id },
-        data: {
-          title,
-          description: description || null,
-          dueDate: new Date(dueDate),
-          priority,
-          subjectArea,
-          estimatedTime:
-            estimatedTime !== undefined ? estimatedTime : undefined,
-          fileLink: req.file ? `/uploads/${req.file.filename}` : undefined,
-        },
-      });
-
-      res.json({
-        message: "Task updated successfully",
-        task: updatedTask,
-      });
-    } catch (error) {
-      next(error);
-    }
+    res.json({
+      message: "Task updated successfully",
+      task: updatedTask,
+    });
+  } catch (error) {
+    next(error);
   }
-);
+});
 
 // Update task status
 router.put(

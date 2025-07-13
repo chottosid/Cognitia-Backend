@@ -15,6 +15,8 @@ import dashboardRoutes from "./routes/dashboard.js";
 import tasksRoutes from "./routes/tasks.js";
 import modelTestRoutes from "./routes/modelTest.js";
 import notesRoutes from "./routes/notes.js";
+import contestRoutes from "./routes/contest.js";
+import contestAdminRoutes from "./routes/admin/contestAdmin.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
 
@@ -51,24 +53,12 @@ app.use("/api/auth", authRoutes);
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
 app.use("/api/tasks", authenticateToken, tasksRoutes);
-
 app.use("/api/model-test", authenticateToken, modelTestRoutes);
-app.use("/api/notes", notesRoutes);
+app.use("/api/notes", authenticateToken, notesRoutes);
+app.use("/api/contests", authenticateToken, contestRoutes);
+app.use("/api/admin/contests", authenticateToken, contestAdminRoutes);
 
-// No alias needed; /api/dashboard now serves dashboard data, /api/analytics serves analytics endpoints
-// 404 handler
-
-// Error handling middleware
 app.use(errorHandler);
-
-// Swagger documentation
-app.use(
-  "/api/docs",
-  swaggerUi.serve,
-  swaggerUi.setup(swaggerSpec, {
-    explorer: true,
-  })
-);
 
 connectDatabase()
   .then(() => {

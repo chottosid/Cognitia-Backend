@@ -13,9 +13,12 @@ model User {
   name                 String
   password             String
   role                 UserRole              @default(STUDENT)
-  avatar               String?
+  avatar               Bytes?                 // Store image data directly in the database
   bio                  String?
   institution          String?
+  graduationYear       Int?
+  major                String?
+  grade                String?
   location             String?
   website              String?
   createdAt            DateTime              @default(now())
@@ -23,24 +26,23 @@ model User {
   otp                  String?
   otpExpires           DateTime?
   verified             Boolean               @default(false)
+
+  // Relations
   answerVotes          AnswerVote[]
   answers              Answer[]
   contestRegistrations ContestRegistration[]
-  contestsOrganized    Contest[]             @relation("ContestOrganizer")
-  customTests          ModelTest[]           @relation("TestCreator")
+  contestAttempts      ContestAttempt[]      // Add this relation
+  modelTests           ModelTest[]
   notes                Note[]
   notesGroups          NotesGroup[]
   notifications        Notification[]
   questionVotes        QuestionVote[]
   questions            Question[]
-  savedItems           SavedItem[]
   sessions             StudySession[]
   tasks                Task[]
-  testAttempts         TestAttempt[]
-  test_questions       test_questions[]
   availabilities       Availability[]
   sessionFeedbacks     SessionFeedback[]
-
+  testAttempts          TestAttempt[]      // Add this relation
   @@map("users")
 }
 
@@ -50,12 +52,12 @@ model Question {
   body       String
   tags       String[]
   views      Int            @default(0)
-  isResolved Boolean        @default(false)
-  difficulty Difficulty     @default(MEDIUM)
   subject    String?
   authorId   String
   createdAt  DateTime       @default(now())
   updatedAt  DateTime       @updatedAt
+
+  // Relations
   answers    Answer[]
   votes      QuestionVote[]
   author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
@@ -66,11 +68,10 @@ model Question {
 model Answer {
   id         String       @id @default(cuid())
   content    String
-  isAccepted Boolean      @default(false)
   questionId String
   authorId   String
   createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
+  updatedAt  DateTime     @default(now())
   votes      AnswerVote[]
   author     User         @relation(fields: [authorId], references: [id], onDelete: Cascade)
   question   Question     @relation(fields: [questionId], references: [id], onDelete: Cascade)
@@ -108,10 +109,11 @@ model NotesGroup {
   id          String   @id @default(cuid())
   name        String
   description String?
-  color       String?
   userId      String
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt   DateTime @default(now())
+
+  // Relations
   notes       Note[]
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -122,17 +124,14 @@ model Note {
   id           String     @id @default(cuid())
   title        String
   visibility   Visibility @default(PRIVATE)
-  files        Json       @default("[]")
+  file         Bytes      
   tags         String[]   @default([])
-  viewCount    Int        @default(0)
-  likeCount    Int        @default(0)
-  dislikeCount Int        @default(0)
-  rating       Float?
-  ratingCount  Int        @default(0)
   authorId     String
   notesGroupId String
   createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  updatedAt    DateTime   @default(now())
+
+  // Relations
   author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   notesGroup   NotesGroup @relation(fields: [notesGroupId], references: [id], onDelete: Cascade)
 
@@ -143,7 +142,7 @@ model Task {
   id            String         @id @default(cuid())
   title         String
   description   String?
-  fileLink      String?  // Optional link to a file or resource
+  file          Bytes?         // Store file data directly in the database
   dueDate       DateTime
   status        TaskStatus     @default(NOT_STARTED)
   priority      Priority       @default(MEDIUM)
@@ -153,7 +152,7 @@ model Task {
   completedAt   DateTime?
   userId        String
   createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @updatedAt
+  updatedAt     DateTime   @default(now())
 
   // Relations
   user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -172,7 +171,7 @@ model StudySession {
   userId    String
   taskId    String?
   createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  updatedAt DateTime  @default(now())
   task      Task?     @relation(fields: [taskId], references: [id])
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessionFeedback      SessionFeedback?
@@ -186,54 +185,23 @@ model Availability {
   endTime   DateTime
   userId    String
   
+  // Relations
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("availabilities")
 }
 
 model SessionFeedback {
-  id                String   @id @default(uuid())
+  id                String   @id @default(cuid())
   userId            String
   sessionId         String   @unique
   confidenceScore   Int
   feedbackAt        DateTime
 
-  studysession      StudySession  @relation(fields: [sessionId], references: [id])
-  user              User      @relation(fields: [userId], references: [id])
+  // Relations
+  studysession      StudySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("session_feedback")
-}
-
-model Contest {
-  id            String                @id @default(cuid())
-  title         String
-  description   String
-  startTime     DateTime
-  endTime       DateTime
-  status        ContestStatus         @default(UPCOMING)
-  difficulty    Difficulty            @default(MEDIUM)
-  participants  Int                   @default(0)
-  topics        String[]              @default([])
-  isVirtual     Boolean               @default(false)
-  eligibility   String?
-  organizerId   String
-  createdAt     DateTime              @default(now())
-  updatedAt     DateTime              @updatedAt
-  registrations ContestRegistration[]
-  organizer     User                  @relation("ContestOrganizer", fields: [organizerId], references: [id], onDelete: Cascade)
-
-  @@map("contests")
-}
-
-model ContestRegistration {
-  id               String   @id @default(cuid())
-  contestId        String
-  userId           String
-  registrationTime DateTime @default(now())
-  isVirtual        Boolean  @default(false)
-  contest          Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
-  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([contestId, userId])
-  @@map("contest_registrations")
 }
 
 model ModelTest {
@@ -243,17 +211,19 @@ model ModelTest {
   timeLimit            Int
   subjects             String[]               @default([])
   topics               String[]               @default([])
-  questions            Json                   @default("[]")
   difficulty           Difficulty             @default(MEDIUM)
   isCustom             Boolean                @default(false)
   passingScore         Int
   totalPoints          Int
-  createdById          String?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
-  model_test_questions model_test_questions[]
-  createdBy            User?                  @relation("TestCreator", fields: [createdById], references: [id])
-  attempts             TestAttempt[]
+
+  // Relations
+  assignments          QuestionAssignment[]
+  userId               String
+
+  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempts             TestAttempt[]        
 
   @@map("model_tests")
 }
@@ -268,27 +238,18 @@ model TestAttempt {
   correctAnswers Int?
   totalQuestions Int
   answers        Json          @default("{}")
-  userId         String
   testId         String
+  userId         String
+  autoSubmitted  Boolean       @default(false)
+  lastActivity   DateTime?
   createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  updatedAt      DateTime      @default(now())
+
+  // Relations
   test           ModelTest     @relation(fields: [testId], references: [id], onDelete: Cascade)
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade) // This now works
 
   @@map("test_attempts")
-}
-
-model SavedItem {
-  id       String        @id @default(cuid())
-  itemType SavedItemType
-  itemId   String
-  tags     String[]      @default([])
-  userId   String
-  savedAt  DateTime      @default(now())
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([userId, itemType, itemId])
-  @@map("saved_items")
 }
 
 model Notification {
@@ -297,50 +258,112 @@ model Notification {
   title       String
   message     String
   isRead      Boolean          @default(false)
-  relatedId   String?
-  relatedType String?
-  actorId     String?
-  actorName   String?
-  actorAvatar String?
   userId      String
   createdAt   DateTime         @default(now())
+
+  // Relations
   user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
-model model_test_questions {
-  id             String         @id
-  modelTestId    String
-  testQuestionId String
-  order          Int
-  createdAt      DateTime       @default(now())
-  model_tests    ModelTest      @relation(fields: [modelTestId], references: [id], onDelete: Cascade)
-  test_questions test_questions @relation(fields: [testQuestionId], references: [id], onDelete: Cascade)
+model QuestionBank {
+  id            String     @id @default(cuid())
+  question      String
+  explanation   String?
+  options       Json
+  correctAnswer Int
+  subject       String
+  topics        String[]   @default([])
+  difficulty    Difficulty @default(MEDIUM)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @default(now())
 
-  @@unique([modelTestId, testQuestionId])
+  // Relations
+  assignments   QuestionAssignment[]
+
+  @@map("question_banks") // Added @@map for consistency
 }
 
-model test_questions {
-  id                   String                 @id
-  question             String
-  explanation          String?
-  options              Json
-  correctAnswer        Int
-  subject              String
-  topics               String[]               @default([])
-  difficulty           Difficulty             @default(MEDIUM)
-  points               Int                    @default(5)
-  createdById          String?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  model_test_questions model_test_questions[]
-  users                User?                  @relation(fields: [createdById], references: [id])
+model QuestionAssignment {
+  id             String   @id @default(cuid())
+  questionId     String
+  modelTestId    String?
+  contestId      String?
+  points         Int      @default(5)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  question       QuestionBank @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  modelTest      ModelTest?   @relation(fields: [modelTestId], references: [id], onDelete: Cascade)
+  contest        Contest?     @relation(fields: [contestId], references: [id])
+
+  @@map("question_assignments")
+}
+
+model Contest {
+  id            String                @id @default(cuid())
+  title         String
+  description   String
+  startTime     DateTime
+  endTime       DateTime
+  status        ContestStatus         @default(UPCOMING)
+  difficulty    Difficulty            @default(MEDIUM)
+  participants  Int                   @default(0)
+  topics        String[]              @default([])
+  eligibility   String?
+  createdAt     DateTime              @default(now())
+  updatedAt     DateTime              @default(now())
+
+  // Relations
+  registrations ContestRegistration[]
+  assignments   QuestionAssignment[]
+  attempts      ContestAttempt[]      // Add this relation
+  @@map("contests")
+}
+
+model ContestRegistration {
+  id               String   @id @default(cuid())
+  contestId        String
+  userId           String
+  registrationTime DateTime @default(now())
+
+  // Relations
+  contest          Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, userId])
+  @@map("contest_registrations")
+}
+
+// Add ContestAttempt model
+model ContestAttempt {
+  id             String        @id @default(cuid())
+  status         AttemptStatus @default(IN_PROGRESS)
+  startTime      DateTime      @default(now())
+  endTime        DateTime?
+  timeSpent      Int?
+  score          Int?
+  correctAnswers Int?
+  totalQuestions Int
+  answers        Json          @default("{}")
+  contestId      String
+  userId         String
+  lastActivity   DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @default(now())
+
+  // Relations
+  contest        Contest       @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([contestId, userId]) // One attempt per user per contest
+  @@map("contest_attempts")
 }
 
 enum UserRole {
   STUDENT
-  TEACHER
   ADMIN
 }
 
@@ -385,11 +408,6 @@ enum AttemptStatus {
   COMPLETED
 }
 
-enum SavedItemType {
-  QUESTION
-  NOTE
-}
-
 enum NotificationType {
   ANSWER
   VOTE
@@ -398,3 +416,4 @@ enum NotificationType {
   MENTION
   SYSTEM
 }
+
