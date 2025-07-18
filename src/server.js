@@ -17,6 +17,7 @@ import modelTestRoutes from "./routes/modelTest.js";
 import notesRoutes from "./routes/notes.js";
 import contestRoutes from "./routes/contest.js";
 import contestAdminRoutes from "./routes/admin/contestAdmin.js";
+import qnaRoutes from "./routes/qa.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
 
@@ -28,6 +29,17 @@ if (process.env.NODE_ENV == "test") {
 
 const app = express();
 const PORT = process.env.PORT;
+
+// Log all incoming requests
+app.use((req, res, next) => {
+  console.log('Request received:');
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  // log request body if it's a POST/PUT request
+  if (req.method === "POST" || req.method === "PUT") {
+    console.log("Request body:", req.body);
+  }
+  next();
+});
 
 // Security and optimization middleware
 app.use(helmet());
@@ -57,6 +69,7 @@ app.use("/api/model-test", authenticateToken, modelTestRoutes);
 app.use("/api/notes", authenticateToken, notesRoutes);
 app.use("/api/contests", authenticateToken, contestRoutes);
 app.use("/api/admin/contests", authenticateToken, contestAdminRoutes);
+app.use("/api/qa", authenticateToken, qnaRoutes);
 
 app.use(errorHandler);
 

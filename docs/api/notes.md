@@ -5,15 +5,19 @@ This document provides details about the endpoints in the `notes.js` file. These
 ---
 
 ## **1. Get All Notes**
+
 ### **GET** `/api/notes/`
+
 Fetches all notes, including the user's notes and public notes.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "notes": [
@@ -42,15 +46,19 @@ Fetches all notes, including the user's notes and public notes.
 ---
 
 ## **2. Get User's Notes**
+
 ### **GET** `/api/notes/my`
+
 Fetches only the authenticated user's notes.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "notes": [
@@ -79,15 +87,19 @@ Fetches only the authenticated user's notes.
 ---
 
 ## **3. Get Recent Notes**
+
 ### **GET** `/api/notes/recent`
+
 Fetches the most recent notes created or updated by the authenticated user.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "notes": [
@@ -108,15 +120,19 @@ Fetches the most recent notes created or updated by the authenticated user.
 ---
 
 ## **4. Get Notes Groups**
+
 ### **GET** `/api/notes/groups`
+
 Fetches all notes groups created by the authenticated user.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "groups": [
@@ -132,25 +148,27 @@ Fetches all notes groups created by the authenticated user.
           "id": "string",
           "title": "string",
           "updatedAt": "datetime",
-          "visibility": "PUBLIC",
-          "rating": 5
+          "visibility": "PUBLIC"
         }
       ]
     }
   ]
 }
 ```
-
 ---
 
 ## **5. Create Notes Group**
+
 ### **POST** `/api/notes/groups`
+
 Creates a new notes group for the authenticated user.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**:
+
 ```json
 {
   "name": "string",
@@ -159,6 +177,7 @@ Creates a new notes group for the authenticated user.
 ```
 
 #### Response Structure
+
 ```json
 {
   "message": "Notes group created successfully",
@@ -176,17 +195,21 @@ Creates a new notes group for the authenticated user.
 ---
 
 ## **6. Get Note by ID**
+
 ### **GET** `/api/notes/:id`
+
 Fetches a specific note by its ID.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Note ID
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "note": {
@@ -213,11 +236,14 @@ Fetches a specific note by its ID.
 ---
 
 ## **7. Create a Note**
+
 ### **POST** `/api/notes/`
+
 Creates a new note in a specific notes group with a required file attachment.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
   - `Content-Type`: `multipart/form-data`
 - **Body** (Form Data):
@@ -225,9 +251,10 @@ Creates a new note in a specific notes group with a required file attachment.
   - `notesGroupId`: string (required)
   - `visibility`: string (required) - "PRIVATE", "PUBLIC", "SHARED"
   - `tags`: array of strings (optional)
-  - `file`: file (required) - any file type, stored as binary data
+  - `files`: file (required) - any file type, stored as binary data
 
 #### Response Structure
+
 ```json
 {
   "message": "Note created successfully",
@@ -246,6 +273,7 @@ Creates a new note in a specific notes group with a required file attachment.
 ```
 
 #### Error Responses
+
 ```json
 {
   "error": "Notes group not found" | "Not authorized to add notes to this group" | "File is required"
@@ -255,21 +283,26 @@ Creates a new note in a specific notes group with a required file attachment.
 ---
 
 ## **8. Get Note File**
+
 ### **GET** `/api/notes/:id/file`
+
 Downloads the file attached to a specific note.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Note ID
 - **Body**: None
 
 #### Response Structure
+
 - **Success**: Returns the file as binary data with appropriate headers
   - `Content-Type`: `application/octet-stream`
   - `Content-Disposition`: `attachment; filename="{note_title}_file"`
 - **Error**:
+
 ```json
 {
   "error": "Note not found" | "Access denied" | "No file attached to this note"
@@ -277,23 +310,28 @@ Downloads the file attached to a specific note.
 ```
 
 #### Access Control
+
 - Private notes: Only accessible by the author
 - Public/Shared notes: Accessible by all authenticated users
 
 ---
 
 ## **9. Delete a Note**
+
 ### **DELETE** `/api/notes/:id`
+
 Deletes a specific note by its ID and its associated file.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Note ID
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "message": "Note deleted successfully"
@@ -301,6 +339,7 @@ Deletes a specific note by its ID and its associated file.
 ```
 
 #### Error Responses
+
 ```json
 {
   "error": "Note not found" | "Not authorized to delete this note"
@@ -310,17 +349,21 @@ Deletes a specific note by its ID and its associated file.
 ---
 
 ## **10. Delete a Notes Group**
+
 ### **DELETE** `/api/notes/groups/:id`
+
 Deletes a specific notes group by its ID, including all associated notes and their files.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Notes group ID
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "message": "Notes group deleted successfully"
@@ -328,6 +371,7 @@ Deletes a specific notes group by its ID, including all associated notes and the
 ```
 
 #### Error Responses
+
 ```json
 {
   "error": "Notes group not found" | "Not authorized to delete this notes group"
@@ -344,7 +388,7 @@ Deletes a specific notes group by its ID, including all associated notes and the
 - **File Size**: Limited by server configuration (currently 50MB)
 - **File Security**: File access respects note visibility settings
 - **File Deletion**: Files are automatically deleted when notes are deleted
-- **Visibility Control**: 
+- **Visibility Control**:
   - PRIVATE: Only note author can access the file
   - PUBLIC: All authenticated users can access the file
   - SHARED: All authenticated users can access the file

@@ -107,7 +107,6 @@ router.get("/groups", async (req, res) => {
             title: true,
             updatedAt: true,
             visibility: true,
-            rating: true,
           },
           orderBy: { updatedAt: "desc" },
         },
@@ -199,14 +198,11 @@ router.get(
 
 router.post(
   "/",
-  upload.single("file"),
+  upload.single("files"), // Changed from "file" to "files"
   [
     body("title").notEmpty().withMessage("Title is required"),
     body("notesGroupId").notEmpty().withMessage("Notes group ID is required"),
-    body("visibility")
-      .isIn(["PRIVATE", "PUBLIC", "SHARED"])
-      .withMessage("Invalid visibility"),
-    handleValidationErrors,
+    handleValidationErrors
   ],
   async (req, res) => {
     try {
@@ -294,7 +290,7 @@ router.get(
 );
 
 // Delete a note
-router.delete("/:id", authenticateToken, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -326,7 +322,7 @@ router.delete("/:id", authenticateToken, async (req, res) => {
 });
 
 // Delete a notes group
-router.delete("/groups/:id", authenticateToken, async (req, res) => {
+router.delete("/groups/:id", async (req, res) => {
   try {
     const { id } = req.params;
 

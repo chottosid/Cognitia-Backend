@@ -9,7 +9,7 @@ const router = express.Router();
 const upload = multer();
 
 // Get dashboard data
-router.get("/", authenticateToken, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     console.log("req.user", req.user);
     if (!req.user || !req.user.id) {
@@ -121,10 +121,24 @@ router.get("/", authenticateToken, async (req, res) => {
     });
 
     // Statistics
-    const totalStudyMinutes = await prisma.studySession.aggregate({
+    const completedStudySessions = await prisma.studySession.findMany({
       where: { userId, completed: true },
-      _sum: { duration: true },
+      select: { startTime: true, endTime: true },
     });
+
+    const totalStudyMinutes = completedStudySessions.reduce(
+      (total, session) => {
+        if (session.endTime && session.startTime) {
+          const durationMs =
+            session.endTime.getTime() - session.startTime.getTime();
+          const durationMinutes = durationMs / (1000 * 60);
+          return total + durationMinutes;
+        }
+        return total;
+      },
+      0
+    );
+
     const questionsAsked = await prisma.question.count({
       where: { authorId: userId },
     });
@@ -135,7 +149,7 @@ router.get("/", authenticateToken, async (req, res) => {
     const stats = {
       totalTasks,
       completedTasks,
-      totalStudyHours: (totalStudyMinutes._sum.duration || 0) / 60,
+      totalStudyHours: totalStudyMinutes / 60,
       questionsAsked,
       questionsAnswered,
     };
