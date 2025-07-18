@@ -1,43 +1,28 @@
-name: Build and Deploy to Azure VM via DockerHub
+name: Build and Deploy
 
 on:
   push:
-    branches:
-      - master
+    branches: [master]
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 22.17.0
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest .
-
-      - name: Log in to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
-
-      - name: Push image to DockerHub
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
+      - name: Set up SSH key
+        run: |
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > key.pem
+          chmod 600 key.pem
 
       - name: Copy docker-compose to server
-        run: scp -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
+        run: |
+          scp -i key.pem -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
 
       - name: SSH and deploy
         run: |
-          ssh -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
+          ssh -i key.pem -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
             cd /home/seed/Cognitia/Cognitia-Backend
-            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
-            docker tag ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest cognitia-backend:latest
             docker-compose up -d --force-recreate app
           EOF
