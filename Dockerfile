@@ -15,11 +15,5 @@ RUN npx prisma generate
 # Expose your app's port
 EXPOSE 3001
 
-# prisma migrate
-RUN npx prisma migrate deploy
 # Start the application
 CMD ["npm", "run", "start"]
-
-# Add to your Dockerfile
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}

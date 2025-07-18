@@ -1,19 +1,6 @@
 version: '3.8'
 
 services:
-  db:
-    image: postgres:17
-    container_name: cognitia-postgres
-    restart: always
-    environment:
-      POSTGRES_PASSWORD: swarup
-      POSTGRES_USER: postgres
-      POSTGRES_DB: postgres
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
   app:
     image: cognitia-backend:latest
     container_name: cognitia-backend
@@ -21,9 +8,4 @@ services:
     env_file:
       - .env
     ports:
-      - "${PORT}:${PORT}"
-    depends_on:
-      - db
-
-volumes:
-  postgres_data:
+      - "3001:3001"

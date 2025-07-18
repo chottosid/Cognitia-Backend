@@ -31,7 +31,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build Docker image
-        run: docker build --build-arg DATABASE_URL="${{ secrets.DATABASE_URL }}" -t ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest .
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest .
 
       - name: Push Docker image
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
@@ -47,5 +47,5 @@ jobs:
             cd /home/seed/Cognitia/Cognitia_Backend
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
             docker tag ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest cognitia-backend:latest
-            docker-compose up -d --force-recreate
+            docker-compose up -d --force-recreate app
           EOF
