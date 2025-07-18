@@ -1,4 +1,4 @@
-name: Test, Build and Deploy to Azure VM via SSH with Docker
+name: Build and Deploy to Azure VM via DockerHub
 
 on:
   push:
@@ -6,14 +6,14 @@ on:
       - master
 
 jobs:
-  test-build-deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Use Node.js
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: 22.17.0
@@ -22,29 +22,18 @@ jobs:
         run: npm install
 
       - name: Build Docker image
-        run: docker build -t cognitia-backend:latest .
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest .
 
-      - name: Save Docker image as tarball
-        run: docker save cognitia-backend:latest -o cognitia-backend.tar
+      - name: Log in to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u ${{ secrets.DOCKERHUB_USERNAME }} --password-stdin
 
-      - name: Copy Docker image to remote server
-        run: |
-          scp -o StrictHostKeyChecking=no cognitia-backend.tar seed@${{ secrets.VM_IP }}:/home/seed/
+      - name: Push image to DockerHub
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
 
-      - name: Copy docker-compose.yml to remote server
-        run: |
-          scp -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
+      - name: Copy docker-compose to server
+        run: scp -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
 
-      - name: Deploy Docker image on remote server
-        run: |
-          ssh -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
-            docker load -i /home/seed/cognitia-backend.tar
-            cd /home/seed/Cognitia/Cognitia-Backend
-            docker-compose up -d --force-recreate app
-          EOF
-          scp -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
-
-      - name: Deploy via SSH with Docker-Compose
+      - name: SSH and deploy
         run: |
           ssh -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
             cd /home/seed/Cognitia/Cognitia-Backend
