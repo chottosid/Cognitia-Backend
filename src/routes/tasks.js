@@ -1,6 +1,5 @@
 import express from "express";
 import { body, query } from "express-validator";
-import multer from "multer";
 import {
   handleValidationErrors,
   validateTask,
@@ -8,9 +7,12 @@ import {
   validatePagination,
 } from "../middleware/validation.js";
 import { prisma } from "../lib/database.js";
+import multer from "multer";
 
 const router = express.Router();
-const upload = multer(); // Use memory storage for multer
+
+// Configure multer for file uploads
+const upload = multer();
 
 // Get all tasks for authenticated user
 router.get("/", async (req, res, next) => {
@@ -307,6 +309,11 @@ router.post("/", upload.single("file"), async (req, res, next) => {
       estimatedTime,
     } = req.body;
 
+    // Basic validation
+    if (!title || !dueDate || !priority || !subjectArea) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
     const fileBuffer = req.file ? req.file.buffer : null;
 
     const newTask = await prisma.task.create({
@@ -316,9 +323,9 @@ router.post("/", upload.single("file"), async (req, res, next) => {
         dueDate: new Date(dueDate),
         priority,
         subjectArea,
-        estimatedTime: estimatedTime || null,
+        estimatedTime: estimatedTime ? parseInt(estimatedTime) : null,
         userId: req.user.id,
-        file: fileBuffer, // Store file directly in the database
+        file: fileBuffer,
       },
     });
 
@@ -343,8 +350,6 @@ router.put("/:id", upload.single("file"), async (req, res, next) => {
       estimatedTime,
     } = req.body;
 
-    const fileBuffer = req.file ? req.file.buffer : undefined;
-
     const existingTask = await prisma.task.findFirst({
       where: {
         id: req.params.id,
@@ -357,23 +362,61 @@ router.put("/:id", upload.single("file"), async (req, res, next) => {
       return res.status(404).json({ error: "Task not found" });
     }
 
+    // Prepare update data - only include file if one was uploaded
+    const updateData = {
+      title,
+      description: description || null,
+      dueDate: new Date(dueDate),
+      priority,
+      subjectArea,
+      estimatedTime: estimatedTime ? parseInt(estimatedTime) : null,
+    };
+
+    // Only update file if a new one was uploaded
+    if (req.file) {
+      updateData.file = req.file.buffer;
+    }
+
     const updatedTask = await prisma.task.update({
       where: { id: req.params.id },
-      data: {
-        title,
-        description: description || null,
-        dueDate: new Date(dueDate),
-        priority,
-        subjectArea,
-        estimatedTime: estimatedTime !== undefined ? estimatedTime : undefined,
-        file: fileBuffer, // Update file if provided
-      },
+      data: updateData,
     });
 
     res.json({
       message: "Task updated successfully",
       task: updatedTask,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get task file
+router.get("/:id/file", async (req, res, next) => {
+  try {
+    const task = await prisma.task.findFirst({
+      where: {
+        id: req.params.id,
+        userId: req.user.id,
+      },
+      select: { file: true, title: true },
+    });
+
+    if (!task) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+
+    if (!task.file) {
+      return res.status(404).json({ error: "No file attached to this task" });
+    }
+
+    res.setHeader("Content-Type", "application/octet-stream");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${task.title}_attachment"`
+    );
+
+    res.send(task.file);
   } catch (error) {
     next(error);
   }

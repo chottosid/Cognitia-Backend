@@ -7,9 +7,11 @@ import {
 } from "../middleware/validation.js";
 import { prisma } from "../lib/database.js";
 import multer from "multer";
-import path from "path";
 
 const router = express.Router();
+
+// Configure multer for file uploads
+const upload = multer();
 
 // Get all notes
 router.get("/", async (req, res) => {
@@ -195,57 +197,101 @@ router.get(
   }
 );
 
-router.post("/", async (req, res) => {
-  try {
-    const { title, notesGroupId, visibility, tags } = req.body;
+router.post(
+  "/",
+  upload.single("file"),
+  [
+    body("title").notEmpty().withMessage("Title is required"),
+    body("notesGroupId").notEmpty().withMessage("Notes group ID is required"),
+    body("visibility")
+      .isIn(["PRIVATE", "PUBLIC", "SHARED"])
+      .withMessage("Invalid visibility"),
+    handleValidationErrors,
+  ],
+  async (req, res) => {
+    try {
+      const { title, notesGroupId, visibility, tags } = req.body;
 
-    // Check if notes group exists and belongs to user
-    const notesGroup = await prisma.notesGroup.findUnique({
-      where: { id: notesGroupId },
-    });
+      // Check if notes group exists and belongs to user
+      const notesGroup = await prisma.notesGroup.findUnique({
+        where: { id: notesGroupId },
+      });
 
-    if (!notesGroup) {
-      return res.status(404).json({ error: "Notes group not found" });
-    }
-    if (notesGroup.userId !== req.user.id) {
-      return res
-        .status(403)
-        .json({ error: "Not authorized to add notes to this group" });
-    }
-
-    // Handle file upload (if any)
-    let fileBuffer = null;
-    if (req.file) {
-      const fs = await import("fs/promises");
-      try {
-        fileBuffer = await fs.readFile(req.file.path);
-      } catch (err) {
-        return res
-          .status(500)
-          .json({ error: "Failed to process uploaded file" });
+      if (!notesGroup) {
+        return res.status(404).json({ error: "Notes group not found" });
       }
+      if (notesGroup.userId !== req.user.id) {
+        return res
+          .status(403)
+          .json({ error: "Not authorized to add notes to this group" });
+      }
+
+      // Handle file upload
+      const fileBuffer = req.file ? req.file.buffer : null;
+
+      if (!fileBuffer) {
+        return res.status(400).json({ error: "File is required" });
+      }
+
+      const note = await prisma.note.create({
+        data: {
+          authorId: req.user.id,
+          notesGroupId,
+          title,
+          visibility: visibility.toUpperCase(),
+          file: fileBuffer,
+          tags: tags || [],
+        },
+      });
+
+      res.status(201).json({
+        message: "Note created successfully",
+        note,
+      });
+    } catch (error) {
+      console.error("Create note error:", error);
+      res.status(500).json({ error: "Failed to create note" });
     }
-
-    const note = await prisma.note.create({
-      data: {
-        authorId: req.user.id,
-        notesGroupId,
-        title,
-        visibility: visibility.toUpperCase(),
-        file: fileBuffer,
-        tags: tags || [],
-      },
-    });
-
-    res.status(201).json({
-      message: "Note created successfully",
-      note,
-    });
-  } catch (error) {
-    console.error("Create note error:", error);
-    res.status(500).json({ error: "Failed to create note" });
   }
-});
+);
+
+// Get note file
+router.get(
+  "/:id/file",
+  validateCuidOrUUID("id"),
+  handleValidationErrors,
+  async (req, res, next) => {
+    try {
+      const note = await prisma.note.findUnique({
+        where: { id: req.params.id },
+        select: { file: true, title: true, authorId: true, visibility: true },
+      });
+
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      if (note.visibility === "PRIVATE" && note.authorId !== req.user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!note.file) {
+        return res.status(404).json({ error: "No file attached to this note" });
+      }
+
+      // Set appropriate headers for file download
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${note.title}_file"`
+      );
+
+      res.send(note.file);
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
 // Delete a note
 router.delete("/:id", authenticateToken, async (req, res) => {
