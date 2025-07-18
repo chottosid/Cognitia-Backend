@@ -21,31 +21,27 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
       - name: Build Docker image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest .
+        run: docker build -t cognitia-backend:latest .
 
-      - name: Push Docker image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
+      - name: Save Docker image as tarball
+        run: docker save cognitia-backend:latest -o cognitia-backend.tar
 
-      - name: Set up SSH agent
-        uses: webfactory/ssh-agent@v0.7.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Ensure remote directory exists
+      - name: Copy Docker image to remote server
         run: |
-          ssh -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
-            mkdir -p /home/seed/Cognitia/Cognitia-Backend
-          EOF
+          scp -o StrictHostKeyChecking=no cognitia-backend.tar seed@${{ secrets.VM_IP }}:/home/seed/
 
       - name: Copy docker-compose.yml to remote server
         run: |
+          scp -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
+
+      - name: Deploy Docker image on remote server
+        run: |
+          ssh -o StrictHostKeyChecking=no seed@${{ secrets.VM_IP }} << 'EOF'
+            docker load -i /home/seed/cognitia-backend.tar
+            cd /home/seed/Cognitia/Cognitia-Backend
+            docker-compose up -d --force-recreate app
+          EOF
           scp -o StrictHostKeyChecking=no docker-compose.yml seed@${{ secrets.VM_IP }}:/home/seed/Cognitia/Cognitia-Backend/
 
       - name: Deploy via SSH with Docker-Compose
