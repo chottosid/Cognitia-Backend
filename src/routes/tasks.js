@@ -272,6 +272,102 @@ router.get("/today", async (req, res, next) => {
   }
 });
 
+// Create a new study session
+router.post("/sessions", async (req, res, next) => {
+  try {
+    const { startTime, endTime, goal, notes, taskId } = req.body;
+
+    // Basic validation
+    if (!startTime || !endTime) {
+      return res
+        .status(400)
+        .json({ error: "Start time and end time are required" });
+    }
+
+    const startDate = new Date(startTime);
+    const endDate = new Date(endTime);
+
+    if (startDate >= endDate) {
+      return res
+        .status(400)
+        .json({ error: "End time must be after start time" });
+    }
+
+    // If taskId is provided, verify the task exists and belongs to the user
+    if (taskId) {
+      const task = await prisma.task.findFirst({
+        where: {
+          id: taskId,
+          userId: req.user.id,
+        },
+      });
+
+      if (!task) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+    }
+
+    const newSession = await prisma.studySession.create({
+      data: {
+        startTime: startDate,
+        endTime: endDate,
+        goal: goal || null,
+        notes: notes || null,
+        taskId: taskId || null,
+        userId: req.user.id,
+      },
+    });
+
+    res.status(201).json({
+      message: "Study session created successfully",
+      session: newSession,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get study plan statistics
+router.get("/stats", async (req, res, next) => {
+  try {
+    console.log("Here");
+    const userId = req.user.id;
+    // Fetch all tasks for the user
+    const tasks = await prisma.task.findMany({
+      where: { userId },
+      select: { status: true, updatedAt: true },
+    });
+
+    const totalTasks = tasks.length;
+    const completedTasks = tasks.filter(
+      (task) => task.status === "COMPLETED"
+    ).length;
+    const progress = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+    // Calculate streak
+    const today = new Date();
+    const streak = tasks
+      .filter((task) => task.status === "COMPLETED")
+      .map((task) => task.updatedAt)
+      .sort((a, b) => b - a)
+      .reduce((streak, date, index, dates) => {
+        const diff = Math.floor((today - date) / (1000 * 60 * 60 * 24));
+        if (index === 0 && diff === 0) return streak + 1; // Completed today
+        if (index > 0 && diff === index) return streak + 1; // Consecutive days
+        return streak;
+      }, 0);
+
+    res.json({
+      totalTasks,
+      completedTasks,
+      progress: progress.toFixed(2),
+      streak,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get task by ID
 router.get(
   "/:id",
@@ -298,21 +394,18 @@ router.get(
 );
 
 // Create new task
+
 router.post("/", upload.single("file"), async (req, res, next) => {
   try {
-    const {
-      title,
-      description,
-      dueDate,
-      priority,
-      subjectArea,
-      estimatedTime,
-    } = req.body;
+    let { title, description, dueDate, priority, subjectArea, estimatedTime } =
+      req.body;
 
     // Basic validation
     if (!title || !dueDate || !priority || !subjectArea) {
       return res.status(400).json({ error: "Missing required fields" });
     }
+
+    priority = priority.toUpperCase(); // Now this reassignment works
 
     const fileBuffer = req.file ? req.file.buffer : null;
 
@@ -480,7 +573,10 @@ router.put("/:id/complete", async (req, res, next) => {
 
     const updatedTask = await prisma.task.update({
       where: { id: req.params.id },
-      data: { status: "COMPLETED" },
+      data: {
+        status: "COMPLETED",
+        completedAt: new Date(), // Update completedAt to current timestamp
+      },
     });
 
     res.json({
@@ -521,9 +617,5 @@ router.delete(
     }
   }
 );
-
-// create schedule
-
-//get today's schedule
 
 export default router;

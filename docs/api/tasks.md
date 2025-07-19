@@ -5,15 +5,19 @@ This document provides details about the endpoints in the `tasks.js` file. These
 ---
 
 ## **1. Get All Tasks**
+
 ### **GET** `/api/tasks/`
+
 Fetches all tasks for the authenticated user.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "tasks": [
@@ -39,17 +43,21 @@ Fetches all tasks for the authenticated user.
 ---
 
 ## **2. Get Task by ID**
+
 ### **GET** `/api/tasks/:id`
+
 Fetches a specific task by its ID.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Task ID
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "task": {
@@ -73,11 +81,14 @@ Fetches a specific task by its ID.
 ---
 
 ## **3. Create a New Task**
+
 ### **POST** `/api/tasks/`
+
 Creates a new task for the authenticated user with optional file attachment.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
   - `Content-Type`: `multipart/form-data`
 - **Body** (Form Data):
@@ -90,6 +101,7 @@ Creates a new task for the authenticated user with optional file attachment.
   - `file`: file (optional) - any file type, stored as binary data
 
 #### Response Structure
+
 ```json
 {
   "message": "Task created successfully",
@@ -114,11 +126,14 @@ Creates a new task for the authenticated user with optional file attachment.
 ---
 
 ## **4. Update a Task**
+
 ### **PUT** `/api/tasks/:id`
+
 Updates an existing task with optional file replacement.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
   - `Content-Type`: `multipart/form-data`
 - **Params**:
@@ -133,6 +148,7 @@ Updates an existing task with optional file replacement.
   - `file`: file (optional) - replaces existing file if provided
 
 #### Response Structure
+
 ```json
 {
   "message": "Task updated successfully",
@@ -157,21 +173,26 @@ Updates an existing task with optional file replacement.
 ---
 
 ## **5. Get Task File**
+
 ### **GET** `/api/tasks/:id/file`
+
 Downloads the file attached to a specific task.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Task ID
 - **Body**: None
 
 #### Response Structure
+
 - **Success**: Returns the file as binary data with appropriate headers
   - `Content-Type`: `application/octet-stream`
   - `Content-Disposition`: `attachment; filename="{task_title}_attachment"`
 - **Error**:
+
 ```json
 {
   "error": "Task not found" | "No file attached to this task"
@@ -181,23 +202,29 @@ Downloads the file attached to a specific task.
 ---
 
 ## **6. Update Task Status**
+
 ### **PUT** `/api/tasks/:id/status`
+
 Updates the status of a task.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Task ID
 - **Body**:
+
 ```json
 {
   "status": "IN_PROGRESS"
 }
 ```
+
 - **Valid Status Values**: "NOT_STARTED", "IN_PROGRESS", "COMPLETED"
 
 #### Response Structure
+
 ```json
 {
   "message": "Task status updated successfully",
@@ -212,17 +239,21 @@ Updates the status of a task.
 ---
 
 ## **7. Mark Task as Completed**
+
 ### **PUT** `/api/tasks/:id/complete`
+
 Marks a task as completed.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Task ID
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "message": "Task marked as completed",
@@ -238,17 +269,21 @@ Marks a task as completed.
 ---
 
 ## **8. Delete a Task**
+
 ### **DELETE** `/api/tasks/:id`
+
 Deletes a specific task and its associated file.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Params**:
   - `id`: Task ID
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "message": "Task deleted successfully"
@@ -258,15 +293,19 @@ Deletes a specific task and its associated file.
 ---
 
 ## **9. Generate Schedule**
+
 ### **GET** `/api/tasks/generate`
+
 Generates a schedule for the authenticated user based on their tasks and availability.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "message": "Schedule generated successfully",
@@ -284,6 +323,7 @@ Generates a schedule for the authenticated user based on their tasks and availab
 ```
 
 #### Error Responses
+
 ```json
 {
   "error": "No tasks found for the user" | "Could not reach scheduling service" | "Invalid schedule response"
@@ -293,15 +333,19 @@ Generates a schedule for the authenticated user based on their tasks and availab
 ---
 
 ## **10. Get Today's Schedule**
+
 ### **GET** `/api/tasks/today`
+
 Fetches today's schedule for the authenticated user.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "sessions": [
@@ -318,6 +362,91 @@ Fetches today's schedule for the authenticated user.
       "updatedAt": "datetime"
     }
   ]
+}
+```
+
+---
+
+## **11. Get Study Plan Statistics**
+
+### **GET** `/api/tasks/stats`
+
+Fetches statistics for the authenticated user's study plan.
+
+#### Request Structure
+
+- **Headers**:
+  - `Authorization`: Bearer token
+- **Body**: None
+
+#### Response Structure
+
+```json
+{
+  "totalTasks": 10,
+  "completedTasks": 5,
+  "progress": "50.00",
+  "streak": 3
+}
+```
+
+- **`totalTasks`**: Total number of tasks for the user.
+- **`completedTasks`**: Number of tasks marked as completed.
+- **`progress`**: Percentage of completed tasks.
+- **`streak`**: Number of consecutive days with at least one completed task.
+
+---
+
+## **12. Create Study Session**
+
+### **POST** `/api/tasks/sessions`
+
+Creates a new study session for the authenticated user.
+
+#### Request Structure
+
+- **Headers**:
+  - `Authorization`: Bearer token
+  - `Content-Type`: `application/json`
+- **Body**:
+  ```json
+  {
+    "startTime": "datetime",
+    "endTime": "datetime",
+    "goal": "string",
+    "notes": "string",
+    "taskId": "string"
+  }
+  ```
+
+- **Required Fields**: `startTime`, `endTime`
+- **Optional Fields**: `goal`, `notes`, `taskId`
+
+#### Response Structure
+
+```json
+{
+  "message": "Study session created successfully",
+  "session": {
+    "id": "string",
+    "startTime": "datetime",
+    "endTime": "datetime",
+    "goal": "string",
+    "notes": "string",
+    "completed": false,
+    "taskId": "string",
+    "userId": "string",
+    "createdAt": "datetime",
+    "updatedAt": "datetime"
+  }
+}
+```
+
+#### Error Responses
+
+```json
+{
+  "error": "Start time and end time are required" | "End time must be after start time" | "Task not found"
 }
 ```
 

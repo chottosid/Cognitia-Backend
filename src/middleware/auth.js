@@ -56,6 +56,7 @@ export async function authenticateToken(req, res, next) {
     }
 
     req.user = user;
+    console.log("Authenticated user:", user.email);
     next();
   } catch (error) {
     if (error.name === "JsonWebTokenError") {

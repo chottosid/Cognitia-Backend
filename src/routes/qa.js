@@ -488,4 +488,132 @@ router.get("/tags/trending", async (req, res) => {
   }
 });
 
+// Get questions of the authenticated user
+router.get("/my-questions", authenticateToken, async (req, res) => {
+  try {
+    console.log("Fetching questions for userId:", req.user.id);
+
+    let {
+      page = 1,
+      limit = 10,
+      search,
+      tags,
+      sortBy = "createdAt",
+      sortOrder = "DESC",
+      status = "all",
+    } = req.query;
+
+    page = Number.parseInt(page) || 1;
+    limit = Number.parseInt(limit) || 10;
+
+    let tagsArray = null;
+    if (tags) {
+      if (Array.isArray(tags)) {
+        tagsArray = tags;
+      } else if (typeof tags === "string" && tags.trim() !== "") {
+        tagsArray = tags.includes(",")
+          ? tags.split(",").map((t) => t.trim())
+          : [tags];
+      }
+    }
+
+    // Build Prisma where clause
+    const where = { authorId: req.user.id };
+    if (search && search.trim() !== "") {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { body: { contains: search, mode: "insensitive" } },
+      ];
+    }
+    if (tagsArray && tagsArray.length > 0 && tagsArray[0] !== "") {
+      where.tags = { hasSome: tagsArray };
+    }
+
+    // Validate sort parameters
+    const validSortColumns = ["createdAt", "updatedAt", "title", "views"];
+    const validSortOrders = ["asc", "desc"];
+    const finalSortBy = validSortColumns.includes(sortBy)
+      ? sortBy
+      : "createdAt";
+    const finalSortOrder = validSortOrders.includes(sortOrder.toLowerCase())
+      ? sortOrder.toLowerCase()
+      : "desc";
+
+    // Fetch questions with Prisma
+    const [questions, total] = await Promise.all([
+      prisma.question.findMany({
+        where,
+        orderBy: { [finalSortBy]: finalSortOrder },
+        skip: (page - 1) * limit,
+        take: limit,
+        include: {
+          author: true,
+          answers: true,
+          votes: true,
+        },
+      }),
+      prisma.question.count({ where }),
+    ]);
+
+    // Calculate vote counts and answer counts, and filter by status if needed
+    let mappedQuestions = questions.map((q) => {
+      const upvotes = q.votes.filter((v) => v.voteType === "UP").length;
+      const downvotes = q.votes.filter((v) => v.voteType === "DOWN").length;
+      const answerCount = q.answers.length;
+
+      return {
+        id: q.id,
+        title: q.title,
+        content: q.body,
+        subject: q.subject,
+        tags: q.tags,
+        author: {
+          id: q.authorId,
+          name: q.author?.name || "",
+          avatar: q.author?.avatar || null,
+        },
+        createdAt: q.createdAt,
+        updatedAt: q.updatedAt,
+        views: q.views,
+        upvotes,
+        downvotes,
+        answerCount,
+        isAnswered: answerCount > 0,
+        isFeatured: false,
+      };
+    });
+
+    // Filter by status after mapping (for consistency with main endpoint)
+    if (status === "resolved") {
+      mappedQuestions = mappedQuestions.filter((q) => q.isAnswered);
+    } else if (status === "unresolved") {
+      mappedQuestions = mappedQuestions.filter((q) => !q.isAnswered);
+    }
+
+    // Update total count for status filtering
+    const finalTotal = status === "all" ? total : mappedQuestions.length;
+
+    res.json({
+      questions: mappedQuestions,
+      pagination: {
+        page,
+        limit,
+        total: finalTotal,
+        totalPages: Math.ceil(finalTotal / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Get my questions error:", error);
+    if (error instanceof Error) {
+      res
+        .status(500)
+        .json({ error: "Failed to get questions", details: error.message });
+    } else {
+      res
+        .status(500)
+        .json({ error: "Failed to get questions", details: error });
+    }
+  }
+});
+
 export default router;

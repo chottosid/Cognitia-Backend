@@ -10,7 +10,7 @@ Fetches a paginated list of questions with filtering and sorting options.
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (optional)
 - **Query Parameters**:
   - `page`: number (default: 1) - Page number for pagination
   - `limit`: number (default: 10) - Number of questions per page
@@ -29,7 +29,7 @@ Fetches a paginated list of questions with filtering and sorting options.
       "id": "string",
       "title": "string",
       "content": "string",
-      "subject": "string",
+      "subject": "string|null",
       "tags": ["string"],
       "author": {
         "id": "string",
@@ -63,7 +63,7 @@ Fetches a specific question by ID with detailed information and increments view 
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (optional)
 - **Parameters**:
   - `id`: string - Question ID
 
@@ -74,7 +74,7 @@ Fetches a specific question by ID with detailed information and increments view 
     "id": "string",
     "title": "string",
     "content": "string",
-    "subject": "string",
+    "subject": "string|null",
     "tags": ["string"],
     "author": {
       "id": "string",
@@ -101,7 +101,7 @@ Fetches all answers for a specific question, ordered by creation date.
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (optional)
 - **Parameters**:
   - `id`: string - Question ID
 
@@ -133,7 +133,7 @@ Creates a new question for the authenticated user.
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (required)
   - `Content-Type`: `application/json`
 - **Body**:
 ```json
@@ -154,7 +154,7 @@ Creates a new question for the authenticated user.
     "title": "string",
     "body": "string",
     "tags": ["string"],
-    "subject": "string",
+    "subject": "string|null",
     "authorId": "string",
     "createdAt": "datetime",
     "updatedAt": "datetime",
@@ -176,7 +176,7 @@ Creates a new answer for a specific question.
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (required)
   - `Content-Type`: `application/json`
 - **Parameters**:
   - `id`: string - Question ID
@@ -220,7 +220,7 @@ Allows users to upvote or downvote questions and answers.
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (required)
   - `Content-Type`: `application/json`
 - **Body**:
 ```json
@@ -260,7 +260,7 @@ Fetches the most popular tags from questions created in the last 30 days.
 
 #### Request Structure
 - **Headers**: 
-  - `Authorization`: Bearer token
+  - `Authorization`: Bearer token (optional)
 - **Body**: None
 
 #### Response Structure
@@ -280,6 +280,58 @@ Fetches the most popular tags from questions created in the last 30 days.
       "count": 8
     }
   ]
+}
+```
+
+---
+
+## **8. Get My Questions**
+### **GET** `/api/qa/my-questions`
+Fetches a paginated list of questions created by the authenticated user.
+
+#### Request Structure
+- **Headers**: 
+  - `Authorization`: Bearer token (required)
+- **Query Parameters**:
+  - `page`: number (default: 1) - Page number for pagination
+  - `limit`: number (default: 10) - Number of questions per page
+  - `search`: string (optional) - Search term for title and content
+  - `tags`: string or array (optional) - Filter by tags (comma-separated or array)
+  - `sortBy`: string (default: "createdAt") - Sort field (createdAt, updatedAt, title, views)
+  - `sortOrder`: string (default: "DESC") - Sort order (ASC, DESC)
+  - `status`: string (default: "all") - Filter by status (all, resolved, unresolved)
+
+#### Response Structure
+```json
+{
+  "questions": [
+    {
+      "id": "string",
+      "title": "string",
+      "content": "string",
+      "subject": "string|null",
+      "tags": ["string"],
+      "author": {
+        "id": "string",
+        "name": "string",
+        "avatar": "bytes|null"
+      },
+      "createdAt": "datetime",
+      "updatedAt": "datetime",
+      "views": 0,
+      "upvotes": 5,
+      "downvotes": 1,
+      "answerCount": 3,
+      "isAnswered": true,
+      "isFeatured": false
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "limit": 10,
+    "total": 25,
+    "totalPages": 3
+  }
 }
 ```
 
@@ -366,6 +418,12 @@ All endpoints may return the following error responses:
 ### **Get Questions with Filters**
 ```bash
 GET /api/qa/questions?search=javascript&tags=frontend,react&sortBy=views&sortOrder=desc&page=1&limit=5
+```
+
+### **Get My Questions**
+```bash
+GET /api/qa/my-questions?status=unresolved&sortBy=createdAt&sortOrder=desc
+Authorization: Bearer <token>
 ```
 
 ### **Create a Question**
