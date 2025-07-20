@@ -6,8 +6,14 @@ const router = express.Router();
 // Get user's past model tests
 router.get("/", async (req, res, next) => {
   try {
+    const { subjects, difficulty } = req.query;
+
+    const filters = { userId: req.user.id };
+    if (subjects) filters.subjects = { hasSome: subjects.split(",") };
+    if (difficulty) filters.difficulty = difficulty;
+
     const modelTests = await prisma.modelTest.findMany({
-      where: { userId: req.user.id },
+      where: filters,
       include: {
         assignments: { include: { question: true } },
         attempts: {
@@ -36,7 +42,126 @@ router.get("/", async (req, res, next) => {
     next(error);
   }
 });
+router.get("/recent-attempts", async (req, res, next) => {
+  try {
+    const { limit = 10 } = req.query;
 
+    // Get user's recent attempts across all their tests
+    const attempts = await prisma.testAttempt.findMany({
+      where: {
+        userId: req.user.id,
+        status: "COMPLETED",
+      },
+      include: {
+        test: {
+          select: {
+            id: true,
+            title: true,
+            totalPoints: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "desc" },
+      take: parseInt(limit),
+    });
+
+    const formattedAttempts = attempts.map((attempt) => ({
+      id: attempt.id,
+      testId: attempt.testId,
+      score: attempt.score,
+      status: attempt.status,
+      startTime: attempt.startTime,
+      endTime: attempt.endTime,
+      timeSpent: attempt.timeSpent,
+      test: attempt.test,
+    }));
+
+    res.json({ attempts: formattedAttempts });
+  } catch (error) {
+    console.error("Error in recent-attempts route:", error);
+    next(error);
+  }
+});
+router.post("/attempt/:attemptId/submit", async (req, res, next) => {
+  try {
+    const { answers, timeSpent, autoSubmit = false } = req.body;
+
+    const attempt = await prisma.testAttempt.findFirst({
+      where: {
+        id: req.params.attemptId,
+        status: "IN_PROGRESS",
+        userId: req.user.id,
+      },
+      include: {
+        test: {
+          include: { assignments: { include: { question: true } } },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ error: "Test attempt not found or already completed" });
+    }
+
+    let finalAnswers = answers || {};
+
+    // Fix: Handle Json type from schema properly
+    if (attempt.answers) {
+      let existingAnswers = {};
+      if (typeof attempt.answers === "object") {
+        existingAnswers = attempt.answers;
+      } else if (typeof attempt.answers === "string") {
+        try {
+          existingAnswers = JSON.parse(attempt.answers);
+        } catch (parseError) {
+          console.error("Error parsing existing answers:", parseError);
+        }
+      }
+      finalAnswers = { ...existingAnswers, ...finalAnswers };
+    }
+
+    let score = 0;
+    let correctAnswers = 0;
+
+    attempt.test.assignments.forEach((assignment) => {
+      const userAnswer = finalAnswers[assignment.question.id];
+      if (
+        userAnswer !== undefined &&
+        userAnswer === assignment.question.correctAnswer
+      ) {
+        score += assignment.points;
+        correctAnswers++;
+      }
+    });
+
+    const updatedAttempt = await prisma.testAttempt.update({
+      where: { id: req.params.attemptId },
+      data: {
+        answers: finalAnswers, // Let Prisma handle Json type
+        timeSpent: timeSpent || 0,
+        score,
+        correctAnswers,
+        endTime: new Date(),
+        status: "COMPLETED",
+        autoSubmitted: autoSubmit,
+      },
+    });
+
+    res.json({
+      success: true,
+      message: "Test attempt submitted successfully",
+      score,
+      correctAnswers,
+      totalQuestions: attempt.totalQuestions,
+      passed: score >= attempt.test.passingScore,
+    });
+  } catch (error) {
+    console.error("Error in submit route:", error);
+    next(error);
+  }
+});
 // Fetch detailed information about a specific model test
 router.get("/:id", async (req, res, next) => {
   try {
@@ -183,10 +308,6 @@ router.post("/:id/start", async (req, res, next) => {
       },
     });
 
-    if (existingAttempt) {
-      return res.status(400).json({ error: "Test is already in progress" });
-    }
-
     const test = await prisma.modelTest.findFirst({
       where: { id: req.params.id, userId: req.user.id },
       include: { assignments: { include: { question: true } } },
@@ -200,14 +321,19 @@ router.post("/:id/start", async (req, res, next) => {
       return res.status(400).json({ error: "Test has no questions" });
     }
 
-    const attempt = await prisma.testAttempt.create({
-      data: {
-        testId: req.params.id,
-        userId: req.user.id,
-        totalQuestions: test.assignments.length,
-        status: "IN_PROGRESS",
-      },
-    });
+    let attempt = existingAttempt;
+
+    // If no existing attempt, create a new one
+    if (!existingAttempt) {
+      attempt = await prisma.testAttempt.create({
+        data: {
+          testId: req.params.id,
+          userId: req.user.id,
+          totalQuestions: test.assignments.length,
+          status: "IN_PROGRESS",
+        },
+      });
+    }
 
     const questions = test.assignments.map((assignment, index) => ({
       id: assignment.question.id,
@@ -217,13 +343,36 @@ router.post("/:id/start", async (req, res, next) => {
       number: index + 1,
     }));
 
-    res.json({
+    const response = {
       attemptId: attempt.id,
       timeLimit: test.timeLimit,
       questions,
       totalPoints: test.totalPoints,
-    });
+    };
+
+    // Fix: Handle Json type properly for existing attempts
+    if (existingAttempt) {
+      response.startTime = attempt.startTime;
+      response.lastActivity = attempt.lastActivity;
+
+      let savedAnswers = {};
+      if (attempt.answers && typeof attempt.answers === "object") {
+        savedAnswers = attempt.answers;
+      } else if (attempt.answers && typeof attempt.answers === "string") {
+        try {
+          savedAnswers = JSON.parse(attempt.answers);
+        } catch (parseError) {
+          console.error("Error parsing saved answers:", parseError);
+        }
+      }
+
+      response.savedAnswers = savedAnswers;
+      response.isResuming = true;
+    }
+
+    res.json(response);
   } catch (error) {
+    console.error("Error in start route:", error);
     next(error);
   }
 });
@@ -256,88 +405,31 @@ router.post("/attempt/:attemptId/answer", async (req, res, next) => {
         .json({ error: "Question does not belong to this test attempt" });
     }
 
-    const existingAnswers = attempt.answers ? JSON.parse(attempt.answers) : {};
+    // Fix: Handle Json type from Prisma schema properly
+    let existingAnswers = {};
+    if (attempt.answers && typeof attempt.answers === "object") {
+      existingAnswers = attempt.answers;
+    } else if (attempt.answers && typeof attempt.answers === "string") {
+      try {
+        existingAnswers = JSON.parse(attempt.answers);
+      } catch (parseError) {
+        console.error("Error parsing existing answers:", parseError);
+      }
+    }
+
     existingAnswers[questionId] = answer;
 
     await prisma.testAttempt.update({
       where: { id: req.params.attemptId },
       data: {
-        answers: JSON.stringify(existingAnswers),
+        answers: existingAnswers, // Prisma will handle Json type conversion
         lastActivity: new Date(),
       },
     });
 
     res.json({ success: true, message: "Answer saved" });
   } catch (error) {
-    next(error);
-  }
-});
-
-// Submit test attempt
-router.post("/attempt/:attemptId/submit", async (req, res, next) => {
-  try {
-    const { answers, timeSpent, autoSubmit = false } = req.body;
-
-    const attempt = await prisma.testAttempt.findFirst({
-      where: {
-        id: req.params.attemptId,
-        status: "IN_PROGRESS",
-        test: { userId: req.user.id },
-      },
-      include: {
-        test: {
-          include: { assignments: { include: { question: true } } },
-        },
-      },
-    });
-
-    if (!attempt) {
-      return res
-        .status(404)
-        .json({ error: "Test attempt not found or already completed" });
-    }
-
-    let finalAnswers = answers;
-    if (!finalAnswers && attempt.answers) {
-      finalAnswers = JSON.parse(attempt.answers);
-    } else if (answers && attempt.answers) {
-      const existingAnswers = JSON.parse(attempt.answers);
-      finalAnswers = { ...existingAnswers, ...answers };
-    }
-
-    let score = 0;
-    let correctAnswers = 0;
-
-    attempt.test.assignments.forEach((assignment) => {
-      const userAnswer = finalAnswers?.[assignment.question.id];
-      if (userAnswer === assignment.question.correctAnswer) {
-        score += assignment.points;
-        correctAnswers++;
-      }
-    });
-
-    const updatedAttempt = await prisma.testAttempt.update({
-      where: { id: req.params.attemptId },
-      data: {
-        answers: JSON.stringify(finalAnswers || {}),
-        timeSpent: timeSpent || 0,
-        score,
-        correctAnswers,
-        endTime: new Date(),
-        status: "COMPLETED",
-        autoSubmitted: autoSubmit,
-      },
-    });
-
-    res.json({
-      success: true,
-      message: "Test attempt submitted successfully",
-      score,
-      correctAnswers,
-      totalQuestions: attempt.totalQuestions,
-      passed: score >= attempt.test.passingScore,
-    });
-  } catch (error) {
+    console.error("Error in answer route:", error);
     next(error);
   }
 });
@@ -367,7 +459,17 @@ router.get("/attempt/:attemptId/results", async (req, res, next) => {
       return res.status(404).json({ error: "Completed attempt not found" });
     }
 
-    const userAnswers = JSON.parse(attempt.answers);
+    // Fix: Handle Json type properly
+    let userAnswers = {};
+    if (attempt.answers && typeof attempt.answers === "object") {
+      userAnswers = attempt.answers;
+    } else if (attempt.answers && typeof attempt.answers === "string") {
+      try {
+        userAnswers = JSON.parse(attempt.answers);
+      } catch (parseError) {
+        console.error("Error parsing answers in results:", parseError);
+      }
+    }
 
     const questions = attempt.test.assignments.map((assignment, index) => {
       const q = assignment.question;
@@ -408,6 +510,7 @@ router.get("/attempt/:attemptId/results", async (req, res, next) => {
       questions,
     });
   } catch (error) {
+    console.error("Error in results route:", error);
     next(error);
   }
 });
@@ -519,37 +622,6 @@ router.get("/stats", async (req, res, next) => {
   }
 });
 
-// Get user's recent attempts across all tests
-router.get("/recent-attempts", async (req, res, next) => {
-  try {
-    const { limit = 10 } = req.query;
-
-    const userTests = await prisma.modelTest.findMany({
-      where: { userId: req.user.id },
-      include: {
-        attempts: {
-          orderBy: { createdAt: "desc" },
-          take: parseInt(limit),
-        },
-      },
-    });
-
-    const allAttempts = userTests
-      .flatMap((test) =>
-        test.attempts.map((attempt) => ({
-          ...attempt,
-          test: { title: test.title, totalPoints: test.totalPoints },
-        }))
-      )
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, parseInt(limit));
-
-    res.json({ attempts: allAttempts });
-  } catch (error) {
-    next(error);
-  }
-});
-
 // Resume an in-progress test
 router.get("/attempt/:attemptId/resume", async (req, res, next) => {
   try {
@@ -578,7 +650,17 @@ router.get("/attempt/:attemptId/resume", async (req, res, next) => {
       number: index + 1,
     }));
 
-    const savedAnswers = attempt.answers ? JSON.parse(attempt.answers) : {};
+    // Fix: Handle Json type properly
+    let savedAnswers = {};
+    if (attempt.answers && typeof attempt.answers === "object") {
+      savedAnswers = attempt.answers;
+    } else if (attempt.answers && typeof attempt.answers === "string") {
+      try {
+        savedAnswers = JSON.parse(attempt.answers);
+      } catch (parseError) {
+        console.error("Error parsing saved answers in resume:", parseError);
+      }
+    }
 
     res.json({
       attemptId: attempt.id,
@@ -590,6 +672,7 @@ router.get("/attempt/:attemptId/resume", async (req, res, next) => {
       totalPoints: attempt.test.totalPoints,
     });
   } catch (error) {
+    console.error("Error in resume route:", error);
     next(error);
   }
 });

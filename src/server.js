@@ -4,10 +4,17 @@ import morgan from "morgan";
 import compression from "compression";
 import dotenv from "dotenv";
 import { swaggerSpec, swaggerUi } from "./utils/swagger.js";
-
+import jwt from "jsonwebtoken";
+import cron from "node-cron";
+import { autoSubmitExpiredTests } from "./jobs/autoSubmit.js";
 import corsMiddleware from "./middleware/cors.js";
 import errorHandler from "./middleware/errorHandler.js";
 import { authenticateToken } from "./middleware/auth.js";
+import {
+  validateCuidOrUUID,
+  handleValidationErrors,
+} from "./middleware/validation.js";
+import { detectMimeType } from "./utils/fileUtils.js";
 // Import your route handlers
 import authRoutes from "./routes/auth.js";
 import analyticsRoutes from "./routes/analytics.js";
@@ -89,18 +96,90 @@ app.get("/api/notes/count", async (req, res) => {
     res.status(500).json({ error: "Failed to fetch notes count" });
   }
 });
-// API routes
+
+// File serving endpoint with better organization
+app.get(
+  "/api/notes/:id/file",
+  [validateCuidOrUUID("id"), handleValidationErrors],
+  async (req, res) => {
+    try {
+      const token = req.query.token;
+      if (!token) {
+        return res.status(401).json({ error: "No token provided" });
+      }
+
+      let user;
+      try {
+        user = jwt.verify(token, process.env.JWT_SECRET);
+      } catch (err) {
+        return res.status(401).json({ error: "Invalid or expired token" });
+      }
+
+      const note = await prisma.note.findUnique({
+        where: { id: req.params.id },
+        select: {
+          file: true,
+          title: true,
+          visibility: true,
+          authorId: true
+        },
+      });
+
+      if (!note) {
+        return res.status(404).json({ error: "Note not found" });
+      }
+
+      if (note.visibility === "PRIVATE" && note.authorId !== user.id) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      if (!note.file) {
+        return res.status(404).json({ error: "No file attached to this note" });
+      }
+
+      // contentType is pdf
+      const contentType = await detectMimeType(note.file);
+      const sanitizedFilename = note.title.replace(/[^a-zA-Z0-9.-]/g, "_");
+
+      res.setHeader("Content-Type", contentType);
+      res.setHeader(
+        "Content-Disposition",
+        `inline; filename="${sanitizedFilename}"`
+      );
+      res.setHeader("Cache-Control", "private, max-age=3600");
+      res.send(note.file);
+    } catch (error) {
+      console.error("Serve note file error:", error);
+      res.status(500).json({ error: "Failed to serve note file" });
+    }
+  }
+);
+
+// Group routes by functionality
+// Authentication routes
 app.use("/api/auth", authRoutes);
+
+// Protected routes
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
 app.use("/api/tasks", authenticateToken, tasksRoutes);
 app.use("/api/model-test", authenticateToken, modelTestRoutes);
 app.use("/api/notes", authenticateToken, notesRoutes);
 app.use("/api/contests", authenticateToken, contestRoutes);
-app.use("/api/admin/contests", authenticateToken, contestAdminRoutes);
 app.use("/api/qa", authenticateToken, qnaRoutes);
 
+// Admin routes
+app.use("/api/admin/contests", authenticateToken, contestAdminRoutes);
+
 app.use(errorHandler);
+
+cron.schedule('* * * * *', async () => {
+  try {
+    await autoSubmitExpiredTests();
+  } catch (err) {
+    console.error('Error auto-submitting test attempts:', err);
+  }
+});
 
 connectDatabase()
   .then(() => {

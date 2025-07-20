@@ -279,42 +279,6 @@ function detectMimeType(buffer) {
   return "application/octet-stream";
 }
 
-router.get(
-  "/:id/file",
-  [validateCuidOrUUID("id"), handleValidationErrors],
-  async (req, res) => {
-    try {
-      const note = await prisma.note.findUnique({
-        where: { id: req.params.id },
-        select: { file: true, title: true, visibility: true, authorId: true },
-      });
-
-      if (!note) {
-        return res.status(404).json({ error: "Note not found" });
-      }
-
-      if (note.visibility === "PRIVATE" && note.authorId !== req.user.id) {
-        return res.status(403).json({ error: "Access denied" });
-      }
-
-      if (!note.file) {
-        return res.status(404).json({ error: "No file attached to this note" });
-      }
-
-      // Detect MIME type from file buffer
-      const contentType = detectMimeType(note.file);
-
-      // Set proper headers for inline viewing
-      res.setHeader("Content-Type", contentType);
-      res.setHeader("Content-Disposition", `inline; filename="${note.title}"`);
-      res.send(note.file);
-    } catch (error) {
-      console.error("Serve note file error:", error);
-      res.status(500).json({ error: "Failed to serve note file" });
-    }
-  }
-);
-
 // Delete a note
 router.delete("/:id", async (req, res) => {
   try {

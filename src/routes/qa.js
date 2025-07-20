@@ -106,12 +106,12 @@ router.get("/questions", async (req, res) => {
 
     res.json({
       questions: mappedQuestions,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
     });
   } catch (error) {
     console.error("Get questions error:", error);
