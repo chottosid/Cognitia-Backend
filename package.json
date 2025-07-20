@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "latest",
     "compression": "^1.8.0",
     "cors": "latest",

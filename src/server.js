@@ -18,6 +18,7 @@ import notesRoutes from "./routes/notes.js";
 import contestRoutes from "./routes/contest.js";
 import contestAdminRoutes from "./routes/admin/contestAdmin.js";
 import qnaRoutes from "./routes/qa.js";
+import profileRoutes from "./routes/profile.js";
 import { connectDatabase } from "./lib/database.js";
 // Load environment variables
 
@@ -70,6 +71,7 @@ app.use("/api/notes", authenticateToken, notesRoutes);
 app.use("/api/contests", authenticateToken, contestRoutes);
 app.use("/api/admin/contests", authenticateToken, contestAdminRoutes);
 app.use("/api/qa", authenticateToken, qnaRoutes);
+app.use("/api/profile", authenticateToken, profileRoutes);
 
 app.use(errorHandler);
 
