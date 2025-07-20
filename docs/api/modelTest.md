@@ -3,6 +3,7 @@
 This document provides details about the endpoints in the `modelTest.js` file. These endpoints manage model tests, including creating, starting, submitting, and retrieving test attempts.
 
 **Important Notes:**
+
 - All endpoints require authentication via Bearer token in the `Authorization` header
 - The `answers` field in the database uses Prisma's `Json` type, which handles JSON data automatically
 - Route order matters: specific routes like `/recent-attempts` and `/stats` must be defined before parameterized routes like `/:id`
@@ -206,9 +207,9 @@ Fetches detailed information about a specific model test, including correct answ
 
 ## **5. Generate a New Model Test**
 
-### **POST** `/api/model-test/generate`
+### **POST** `/api/model-test/create`
 
-Creates a new model test based on the provided criteria by selecting questions from the question bank.
+Creates a new model test based on the provided criteria by selecting questions from the question bank. The selection logic ensures a robust distribution of questions based on the specified difficulty level.
 
 #### Request Structure
 
@@ -254,9 +255,29 @@ Creates a new model test based on the provided criteria by selecting questions f
 }
 ```
 
+#### Enhanced Logic for Question Selection
+
+The distribution of questions is determined by the difficulty level of the test:
+
+- **EASY**:
+  - 70% easy questions
+  - 20% medium questions
+  - 10% hard questions
+- **MEDIUM**:
+  - 30% easy questions
+  - 50% medium questions
+  - 20% hard questions
+- **HARD**:
+  - 10% easy questions
+  - 30% medium questions
+  - 60% hard questions
+
+The system ensures that the total number of questions matches the requested `questionCount`. If there are insufficient questions available for any difficulty level, an error is returned.
+
 #### Error Responses
 
-- **400 Bad Request**: If no subjects provided or insufficient questions available
+- **400 Bad Request**: If no subjects are provided or insufficient questions are available
+
 ```json
 {
   "error": "At least one subject is required"
@@ -288,6 +309,7 @@ Starts a new attempt for a specific model test or resumes an existing in-progres
 #### Response Structure
 
 **New Attempt:**
+
 ```json
 {
   "attemptId": "string",
@@ -306,6 +328,7 @@ Starts a new attempt for a specific model test or resumes an existing in-progres
 ```
 
 **Resuming Existing Attempt:**
+
 ```json
 {
   "attemptId": "string",
@@ -586,16 +609,19 @@ Deletes a specific model test and all associated data.
 ## **Data Types and Enums**
 
 ### Difficulty Levels
+
 - `EASY`
-- `MEDIUM` 
+- `MEDIUM`
 - `HARD`
 - `EXPERT`
 
 ### Attempt Status
+
 - `IN_PROGRESS`
 - `COMPLETED`
 
 ### Important Notes on Data Types
+
 - `options`: Stored as JSON object in database
 - `answers`: Stored as JSON object, automatically handled by Prisma
 - `correctAnswer`: Integer representing the option index
@@ -609,8 +635,9 @@ Deletes a specific model test and all associated data.
 ## **Error Handling**
 
 All endpoints include proper error handling:
+
 - **Authentication errors**: 401 Unauthorized
-- **Authorization errors**: 403 Forbidden  
+- **Authorization errors**: 403 Forbidden
 - **Not found errors**: 404 Not Found
 - **Validation errors**: 400 Bad Request
 - **Server errors**: 500 Internal Server Error

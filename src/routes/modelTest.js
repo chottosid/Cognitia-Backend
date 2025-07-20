@@ -42,6 +42,7 @@ router.get("/", async (req, res, next) => {
     next(error);
   }
 });
+
 router.get("/recent-attempts", async (req, res, next) => {
   try {
     const { limit = 10 } = req.query;
@@ -82,6 +83,7 @@ router.get("/recent-attempts", async (req, res, next) => {
     next(error);
   }
 });
+
 router.post("/attempt/:attemptId/submit", async (req, res, next) => {
   try {
     const { answers, timeSpent, autoSubmit = false } = req.body;
@@ -162,6 +164,7 @@ router.post("/attempt/:attemptId/submit", async (req, res, next) => {
     next(error);
   }
 });
+
 // Fetch detailed information about a specific model test
 router.get("/:id", async (req, res, next) => {
   try {
@@ -213,7 +216,7 @@ router.get("/:id", async (req, res, next) => {
 });
 
 // Generate a new model test based on criteria
-router.post("/generate", async (req, res, next) => {
+router.post("/create", async (req, res, next) => {
   try {
     const {
       subjects = [],
@@ -229,22 +232,51 @@ router.post("/generate", async (req, res, next) => {
         .json({ error: "At least one subject is required" });
     }
 
-    const where = { difficulty, subject: { in: subjects } };
-    if (topics.length) where.topics = { hasSome: topics };
+    const difficultyDistribution = {
+      EASY: { easy: 0.7, medium: 0.2, hard: 0.1 },
+      MEDIUM: { easy: 0.3, medium: 0.5, hard: 0.2 },
+      HARD: { easy: 0.1, medium: 0.3, hard: 0.6 },
+    };
 
-    const availableQuestions = await prisma.questionBank.findMany({
-      where,
-      take: questionCount,
-      orderBy: { createdAt: "desc" },
-    });
+    const distribution =
+      difficultyDistribution[difficulty] || difficultyDistribution["MEDIUM"];
+    const questionCounts = {
+      easy: Math.round(questionCount * distribution.easy),
+      medium: Math.round(questionCount * distribution.medium),
+      hard: Math.round(questionCount * distribution.hard),
+    };
 
-    if (availableQuestions.length < questionCount) {
+    const whereBase = { subject: { in: subjects } };
+    if (topics.length) whereBase.topics = { hasSome: topics };
+
+    const fetchQuestions = async (level, count) => {
+      return await prisma.questionBank.findMany({
+        where: { ...whereBase, difficulty: level },
+        take: count,
+        orderBy: { createdAt: "desc" },
+      });
+    };
+
+    const [easyQuestions, mediumQuestions, hardQuestions] = await Promise.all([
+      fetchQuestions("EASY", questionCounts.easy),
+      fetchQuestions("MEDIUM", questionCounts.medium),
+      fetchQuestions("HARD", questionCounts.hard),
+    ]);
+
+    const allQuestions = [
+      ...easyQuestions,
+      ...mediumQuestions,
+      ...hardQuestions,
+    ];
+
+    if (allQuestions.length < questionCount) {
       return res.status(400).json({
-        error: `Only ${availableQuestions.length} questions available. Requested ${questionCount}.`,
+        error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
       });
     }
 
-    const totalPoints = availableQuestions.length * 5;
+    const selectedQuestions = allQuestions.slice(0, questionCount);
+    const totalPoints = selectedQuestions.length * 5;
     const passingScore = Math.ceil(totalPoints * 0.6);
 
     const modelTest = await prisma.modelTest.create({
@@ -262,7 +294,7 @@ router.post("/generate", async (req, res, next) => {
         totalPoints,
         userId: req.user.id,
         assignments: {
-          create: availableQuestions.map((question) => ({
+          create: selectedQuestions.map((question) => ({
             questionId: question.id,
             points: 5,
           })),

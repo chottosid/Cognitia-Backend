@@ -116,35 +116,90 @@ router.get("/registered", async (req, res, next) => {
 // Start a contest attempt
 router.post("/:id/start", async (req, res, next) => {
   try {
+    const currentTime = new Date();
     const contest = await prisma.contest.findUnique({
       where: { id: req.params.id },
       include: {
-        assignments: { include: { question: true } },
+        assignments: {
+          include: { question: true },
+          orderBy: { createdAt: "asc" },
+        },
         registrations: { where: { userId: req.user.id }, select: { id: true } },
         attempts: {
           where: { userId: req.user.id },
-          select: { id: true, status: true },
+          select: { id: true, status: true, startTime: true },
         },
       },
     });
 
-    if (!contest)
-      return res.status(404).json({ error: "Contest not found or not active" });
-    if (!contest.registrations.length)
-      return res.status(403).json({ error: "Not registered for this contest" });
+    if (!contest) {
+      return res.status(404).json({ error: "Contest not found" });
+    }
 
-    const existingAttempt = contest.attempts.find(
+    // Check if contest is ongoing
+    if (currentTime < contest.startTime) {
+      return res.status(400).json({ error: "Contest has not started yet" });
+    }
+
+    if (currentTime > contest.endTime) {
+      return res.status(400).json({ error: "Contest has already ended" });
+    }
+
+    if (!contest.registrations.length) {
+      return res.status(403).json({ error: "Not registered for this contest" });
+    }
+
+    // Check for existing attempt
+    let existingAttempt = contest.attempts.find(
       (a) => a.status === "IN_PROGRESS"
     );
-    if (existingAttempt)
-      return res.status(400).json({ error: "Test is already in progress" });
 
+    if (existingAttempt) {
+      // Resume existing attempt
+      const questions = contest.assignments.map((assignment, index) => ({
+        id: assignment.question.id,
+        question: assignment.question.question,
+        options: assignment.question.options,
+        points: assignment.points,
+        number: index + 1,
+      }));
+
+      const fullAttempt = await prisma.contestAttempt.findUnique({
+        where: { id: existingAttempt.id },
+      });
+
+      return res.json({
+        attemptId: existingAttempt.id,
+        startTime: existingAttempt.startTime,
+        endTime: contest.endTime,
+        lastActivity: fullAttempt.lastActivity,
+        savedAnswers: fullAttempt.answers || {},
+        questions,
+        totalQuestions: questions.length,
+        isResuming: true,
+        timeRemaining: Math.max(
+          0,
+          contest.endTime.getTime() - currentTime.getTime()
+        ),
+      });
+    }
+
+    // Check if user already completed the contest
+    const completedAttempt = contest.attempts.find(
+      (a) => a.status === "COMPLETED"
+    );
+    if (completedAttempt) {
+      return res.status(400).json({ error: "Contest already completed" });
+    }
+
+    // Create new attempt
     const attempt = await prisma.contestAttempt.create({
       data: {
         contestId: req.params.id,
         userId: req.user.id,
         totalQuestions: contest.assignments.length,
         status: "IN_PROGRESS",
+        lastActivity: new Date(),
       },
     });
 
@@ -162,63 +217,87 @@ router.post("/:id/start", async (req, res, next) => {
       endTime: contest.endTime,
       questions,
       totalQuestions: questions.length,
+      timeRemaining: Math.max(
+        0,
+        contest.endTime.getTime() - currentTime.getTime()
+      ),
     });
   } catch (error) {
     next(error);
   }
 });
 
-// Save answer for a specific question during contest
-router.post("/attempt/:attemptId/answer", async (req, res, next) => {
+// Get current contest attempt (for resuming)
+router.get("/attempt/current", async (req, res, next) => {
   try {
-    const { questionId, answer } = req.body;
-
     const attempt = await prisma.contestAttempt.findFirst({
       where: {
-        id: req.params.attemptId,
         userId: req.user.id,
         status: "IN_PROGRESS",
       },
-      include: { contest: { include: { assignments: true } } },
+      include: {
+        contest: {
+          include: {
+            assignments: {
+              include: { question: true },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
+      },
     });
 
-    if (!attempt)
-      return res
-        .status(404)
-        .json({ error: "Active contest attempt not found" });
+    if (!attempt) {
+      return res.json({ attempt: null });
+    }
 
-    const questionExists = attempt.contest.assignments.some(
-      (assignment) => assignment.questionId === questionId
-    );
+    // Check if contest has ended - auto submit if necessary
+    const currentTime = new Date();
+    if (currentTime > attempt.contest.endTime) {
+      await autoSubmitAttempt(attempt.id, req.user.id);
+      return res.json({
+        attempt: null,
+        message: "Contest has ended and was auto-submitted",
+      });
+    }
 
-    if (!questionExists)
-      return res
-        .status(400)
-        .json({ error: "Question does not belong to this contest" });
+    const questions = attempt.contest.assignments.map((assignment, index) => ({
+      id: assignment.question.id,
+      question: assignment.question.question,
+      options: assignment.question.options,
+      points: assignment.points,
+      number: index + 1,
+    }));
 
-    const existingAnswers = attempt.answers || {};
-    existingAnswers[questionId] = answer;
-
-    await prisma.contestAttempt.update({
-      where: { id: req.params.attemptId },
-      data: { answers: existingAnswers, lastActivity: new Date() },
+    res.json({
+      attempt: {
+        id: attempt.id,
+        contestId: attempt.contest.id,
+        contestTitle: attempt.contest.title,
+        startTime: attempt.startTime,
+        endTime: attempt.contest.endTime,
+        lastActivity: attempt.lastActivity,
+        savedAnswers: attempt.answers || {},
+        questions,
+        totalQuestions: questions.length,
+        timeRemaining: Math.max(
+          0,
+          attempt.contest.endTime.getTime() - currentTime.getTime()
+        ),
+      },
     });
-
-    res.json({ success: true, message: "Answer saved" });
   } catch (error) {
     next(error);
   }
 });
 
-// Submit contest attempt
-router.post("/attempt/:attemptId/submit", async (req, res, next) => {
+// Auto-submit helper function
+async function autoSubmitAttempt(attemptId, userId) {
   try {
-    const { timeSpent } = req.body;
-
     const attempt = await prisma.contestAttempt.findFirst({
       where: {
-        id: req.params.attemptId,
-        userId: req.user.id,
+        id: attemptId,
+        userId: userId,
         status: "IN_PROGRESS",
       },
       include: {
@@ -226,10 +305,7 @@ router.post("/attempt/:attemptId/submit", async (req, res, next) => {
       },
     });
 
-    if (!attempt)
-      return res
-        .status(404)
-        .json({ error: "Active contest attempt not found" });
+    if (!attempt) return;
 
     const answers = attempt.answers || {};
     let score = 0;
@@ -245,22 +321,149 @@ router.post("/attempt/:attemptId/submit", async (req, res, next) => {
     });
 
     await prisma.contestAttempt.update({
+      where: { id: attemptId },
+      data: {
+        status: "COMPLETED",
+        score,
+        correctAnswers,
+        endTime: new Date(),
+        timeSpent: Math.floor((new Date() - attempt.startTime) / 1000),
+      },
+    });
+
+    console.log(
+      `Auto-submitted contest attempt ${attemptId} for user ${userId}`
+    );
+  } catch (error) {
+    console.error(`Error auto-submitting attempt ${attemptId}:`, error);
+  }
+}
+
+// Enhanced answer saving with better validation
+router.post("/attempt/:attemptId/answer", async (req, res, next) => {
+  try {
+    const { questionId, answer } = req.body;
+
+    const attempt = await prisma.contestAttempt.findFirst({
+      where: {
+        id: req.params.attemptId,
+        userId: req.user.id,
+        status: "IN_PROGRESS",
+      },
+      include: {
+        contest: {
+          include: { assignments: true },
+          select: { id: true, endTime: true, assignments: true },
+        },
+      },
+    });
+
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ error: "Active contest attempt not found" });
+    }
+
+    // Check if contest has ended
+    const currentTime = new Date();
+    if (currentTime > attempt.contest.endTime) {
+      // Auto-submit the attempt
+      await autoSubmitAttempt(req.params.attemptId, req.user.id);
+      return res.status(400).json({
+        error: "Contest has ended",
+        autoSubmitted: true,
+      });
+    }
+
+    const questionExists = attempt.contest.assignments.some(
+      (assignment) => assignment.questionId === questionId
+    );
+
+    if (!questionExists) {
+      return res
+        .status(400)
+        .json({ error: "Question does not belong to this contest" });
+    }
+
+    const existingAnswers = attempt.answers || {};
+    existingAnswers[questionId] = answer;
+
+    await prisma.contestAttempt.update({
+      where: { id: req.params.attemptId },
+      data: { answers: existingAnswers, lastActivity: new Date() },
+    });
+
+    res.json({
+      success: true,
+      message: "Answer saved",
+      timeRemaining: Math.max(
+        0,
+        attempt.contest.endTime.getTime() - currentTime.getTime()
+      ),
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Enhanced submit with auto-submit detection
+router.post("/attempt/:attemptId/submit", async (req, res, next) => {
+  try {
+    const { timeSpent, isAutoSubmit = false } = req.body;
+
+    const attempt = await prisma.contestAttempt.findFirst({
+      where: {
+        id: req.params.attemptId,
+        userId: req.user.id,
+        status: "IN_PROGRESS",
+      },
+      include: {
+        contest: { include: { assignments: { include: { question: true } } } },
+      },
+    });
+
+    if (!attempt) {
+      return res
+        .status(404)
+        .json({ error: "Active contest attempt not found" });
+    }
+
+    const answers = attempt.answers || {};
+    let score = 0;
+    let correctAnswers = 0;
+
+    attempt.contest.assignments.forEach((assignment) => {
+      if (
+        answers[assignment.question.id] === assignment.question.correctAnswer
+      ) {
+        score += assignment.points;
+        correctAnswers++;
+      }
+    });
+
+    const finalTimeSpent =
+      timeSpent || Math.floor((new Date() - attempt.startTime) / 1000);
+
+    await prisma.contestAttempt.update({
       where: { id: req.params.attemptId },
       data: {
         status: "COMPLETED",
         score,
         correctAnswers,
-        timeSpent: timeSpent || 0,
+        timeSpent: finalTimeSpent,
         endTime: new Date(),
       },
     });
 
     res.json({
       success: true,
-      message: "Contest attempt submitted successfully",
+      message: isAutoSubmit
+        ? "Contest attempt auto-submitted successfully"
+        : "Contest attempt submitted successfully",
       score,
       correctAnswers,
       totalQuestions: attempt.totalQuestions,
+      isAutoSubmitted: isAutoSubmit,
     });
   } catch (error) {
     next(error);
@@ -363,6 +566,50 @@ router.get("/:id/rankings", async (req, res, next) => {
       },
       rankings,
       totalParticipants: rankings.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Add endpoint to check contest status
+router.get("/:id/status", async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { id: req.params.id },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        endTime: true,
+        status: true,
+      },
+    });
+
+    if (!contest) {
+      return res.status(404).json({ error: "Contest not found" });
+    }
+
+    const currentTime = new Date();
+    const timeToStart = Math.max(
+      0,
+      contest.startTime.getTime() - currentTime.getTime()
+    );
+    const timeToEnd = Math.max(
+      0,
+      contest.endTime.getTime() - currentTime.getTime()
+    );
+
+    res.json({
+      contest: {
+        ...contest,
+        timeToStart,
+        timeToEnd,
+        isActive:
+          currentTime >= contest.startTime && currentTime <= contest.endTime,
+        hasStarted: currentTime >= contest.startTime,
+        hasEnded: currentTime > contest.endTime,
+      },
     });
   } catch (error) {
     next(error);
