@@ -26,11 +26,10 @@ Fetches all notes, including the user's notes and public notes.
       "title": "string",
       "visibility": "PUBLIC",
       "tags": ["string"],
-      "file": "bytes",
       "author": {
         "id": "string",
         "name": "string",
-        "avatar": "bytes|null"
+        "avatar": "string|null"
       },
       "notesGroup": {
         "id": "string",
@@ -67,11 +66,10 @@ Fetches only the authenticated user's notes.
       "title": "string",
       "visibility": "PRIVATE",
       "tags": ["string"],
-      "file": "bytes",
       "author": {
         "id": "string",
         "name": "string",
-        "avatar": "bytes|null"
+        "avatar": "string|null"
       },
       "notesGroup": {
         "id": "string",
@@ -106,10 +104,9 @@ Fetches the most recent notes created or updated by the authenticated user.
     {
       "id": "string",
       "title": "string",
-      "groupName": "string",
+      "groupName": "string|null",
       "visibility": "PRIVATE",
       "tags": ["string"],
-      "file": "bytes",
       "createdAt": "datetime",
       "updatedAt": "datetime"
     }
@@ -155,6 +152,7 @@ Fetches all notes groups created by the authenticated user.
   ]
 }
 ```
+
 ---
 
 ## **5. Create Notes Group**
@@ -217,11 +215,10 @@ Fetches a specific note by its ID.
     "title": "string",
     "visibility": "PRIVATE",
     "tags": ["string"],
-    "file": "bytes",
     "author": {
       "id": "string",
       "name": "string",
-      "avatar": "bytes|null"
+      "avatar": "string|null"
     },
     "notesGroup": {
       "id": "string",
@@ -249,7 +246,7 @@ Creates a new note in a specific notes group with a required file attachment.
 - **Body** (Form Data):
   - `title`: string (required)
   - `notesGroupId`: string (required)
-  - `visibility`: string (required) - "PRIVATE", "PUBLIC", "SHARED"
+  - `visibility`: string (required) - "PRIVATE", "PUBLIC"
   - `tags`: array of strings (optional)
   - `files`: file (required) - any file type, stored as binary data
 
@@ -263,20 +260,11 @@ Creates a new note in a specific notes group with a required file attachment.
     "title": "string",
     "visibility": "PUBLIC",
     "tags": ["string"],
-    "file": "bytes",
     "authorId": "string",
     "notesGroupId": "string",
     "createdAt": "datetime",
     "updatedAt": "datetime"
   }
-}
-```
-
-#### Error Responses
-
-```json
-{
-  "error": "Notes group not found" | "Not authorized to add notes to this group" | "File is required"
 }
 ```
 
@@ -309,18 +297,13 @@ Downloads the file attached to a specific note.
 }
 ```
 
-#### Access Control
-
-- Private notes: Only accessible by the author
-- Public/Shared notes: Accessible by all authenticated users
-
 ---
 
 ## **9. Delete a Note**
 
 ### **DELETE** `/api/notes/:id`
 
-Deletes a specific note by its ID and its associated file.
+Deletes a specific note by its ID.
 
 #### Request Structure
 
@@ -338,21 +321,13 @@ Deletes a specific note by its ID and its associated file.
 }
 ```
 
-#### Error Responses
-
-```json
-{
-  "error": "Note not found" | "Not authorized to delete this note"
-}
-```
-
 ---
 
 ## **10. Delete a Notes Group**
 
 ### **DELETE** `/api/notes/groups/:id`
 
-Deletes a specific notes group by its ID, including all associated notes and their files.
+Deletes a specific notes group by its ID, including all associated notes.
 
 #### Request Structure
 
@@ -377,6 +352,40 @@ Deletes a specific notes group by its ID, including all associated notes and the
   "error": "Notes group not found" | "Not authorized to delete this notes group"
 }
 ```
+
+---
+
+## **11. Serve Note File**
+
+### **GET** `/api/notes/:id/file`
+
+Serves the file attached to a specific note.
+
+#### Request Structure
+
+- **Headers**:
+  - `Authorization`: Bearer token
+- **Params**:
+  - `id`: Note ID
+- **Body**: None
+
+#### Response Structure
+
+- **Success**: Returns the file as binary data with appropriate headers
+  - `Content-Type`: `application/octet-stream`
+  - `Content-Disposition`: `attachment; filename="{note_title}_file"`
+- **Error**:
+
+```json
+{
+  "error": "Note not found" | "Access denied" | "No file attached to this note"
+}
+```
+
+#### Access Control
+
+- **PRIVATE**: Only accessible by the note's author.
+- **PUBLIC**/**SHARED**: Accessible by all authenticated users.
 
 ---
 

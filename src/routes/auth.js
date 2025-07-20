@@ -157,11 +157,9 @@ router.post(
 
       // Check if user is verified
       if (!user.verified) {
-        return res
-          .status(403)
-          .json({
-            error: "User not verified. Please check your email for OTP.",
-          });
+        return res.status(403).json({
+          error: "User not verified. Please check your email for OTP.",
+        });
       }
 
       // Generate token
@@ -181,5 +179,8 @@ router.post(
     }
   }
 );
+
+// Get total number of users
+
 
 export default router;

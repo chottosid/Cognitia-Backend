@@ -202,7 +202,7 @@ router.post(
   [
     body("title").notEmpty().withMessage("Title is required"),
     body("notesGroupId").notEmpty().withMessage("Notes group ID is required"),
-    handleValidationErrors
+    handleValidationErrors,
   ],
   async (req, res) => {
     try {
@@ -251,16 +251,42 @@ router.post(
   }
 );
 
-// Get note file
+// Helper function to detect MIME type (add this before the route)
+function detectMimeType(buffer) {
+  // Check for PDF signature
+  if (
+    buffer[0] === 0x25 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x44 &&
+    buffer[3] === 0x46
+  ) {
+    return "application/pdf";
+  }
+  // Check for PNG signature
+  if (
+    buffer[0] === 0x89 &&
+    buffer[1] === 0x50 &&
+    buffer[2] === 0x4e &&
+    buffer[3] === 0x47
+  ) {
+    return "image/png";
+  }
+  // Check for JPEG signature
+  if (buffer[0] === 0xff && buffer[1] === 0xd8) {
+    return "image/jpeg";
+  }
+  // Default to octet-stream if unknown
+  return "application/octet-stream";
+}
+
 router.get(
   "/:id/file",
-  validateCuidOrUUID("id"),
-  handleValidationErrors,
-  async (req, res, next) => {
+  [validateCuidOrUUID("id"), handleValidationErrors],
+  async (req, res) => {
     try {
       const note = await prisma.note.findUnique({
         where: { id: req.params.id },
-        select: { file: true, title: true, authorId: true, visibility: true },
+        select: { file: true, title: true, visibility: true, authorId: true },
       });
 
       if (!note) {
@@ -275,16 +301,16 @@ router.get(
         return res.status(404).json({ error: "No file attached to this note" });
       }
 
-      // Set appropriate headers for file download
-      res.setHeader("Content-Type", "application/octet-stream");
-      res.setHeader(
-        "Content-Disposition",
-        `attachment; filename="${note.title}_file"`
-      );
+      // Detect MIME type from file buffer
+      const contentType = detectMimeType(note.file);
 
+      // Set proper headers for inline viewing
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `inline; filename="${note.title}"`);
       res.send(note.file);
     } catch (error) {
-      next(error);
+      console.error("Serve note file error:", error);
+      res.status(500).json({ error: "Failed to serve note file" });
     }
   }
 );

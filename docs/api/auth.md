@@ -116,6 +116,30 @@ Authenticates a user and returns a JWT token.
 
 ---
 
+## **4. Get Total Number of Users**
+### **GET** `/api/auth/users/count`
+Fetches the total number of registered users.
+
+#### Request Structure
+- **Headers**: None
+- **Body**: None
+
+#### Response Structure
+```json
+{
+  "count": "number"
+}
+```
+
+#### Error Responses
+```json
+{
+  "error": "Failed to fetch user count"
+}
+```
+
+---
+
 ## **Authentication Flow**
 
 1. **Registration**: User submits registration form with optional avatar

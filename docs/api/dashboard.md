@@ -5,15 +5,19 @@ This document provides details about the endpoints in the `dashboard.js` file. T
 ---
 
 ## **1. Get Dashboard Data**
+
 ### **GET** `/api/dashboard/`
+
 Fetches comprehensive dashboard data for the authenticated user.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "feed": [
@@ -117,15 +121,19 @@ Fetches comprehensive dashboard data for the authenticated user.
 ---
 
 ## **2. Get User Profile Data**
+
 ### **GET** `/api/dashboard/me`
+
 Fetches the authenticated user's profile information.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 ```json
 {
   "name": "string",
@@ -144,11 +152,14 @@ Fetches the authenticated user's profile information.
 ---
 
 ## **3. Update User Profile**
+
 ### **PUT** `/api/dashboard/me`
+
 Updates the authenticated user's profile information with optional avatar upload.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
   - `Content-Type`: `multipart/form-data`
 - **Body** (Form Data):
@@ -162,6 +173,7 @@ Updates the authenticated user's profile information with optional avatar upload
   - `avatar`: file (optional) - image file to replace current avatar
 
 #### Response Structure
+
 ```json
 {
   "id": "string",
@@ -183,19 +195,24 @@ Updates the authenticated user's profile information with optional avatar upload
 ---
 
 ## **4. Get User Avatar**
+
 ### **GET** `/api/dashboard/me/avatar`
+
 Downloads the authenticated user's avatar image.
 
 #### Request Structure
-- **Headers**: 
+
+- **Headers**:
   - `Authorization`: Bearer token
 - **Body**: None
 
 #### Response Structure
+
 - **Success**: Returns the avatar image as binary data with appropriate headers
   - `Content-Type`: `image/jpeg`
   - `Content-Disposition`: `inline; filename="{user_name}_avatar.jpg"`
 - **Error**:
+
 ```json
 {
   "error": "User not found" | "No avatar found"
