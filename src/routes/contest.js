@@ -678,11 +678,11 @@ router.post("/create", async (req, res, next) => {
       ...mediumQuestions,
       ...hardQuestions,
     ];
-    // if (allQuestions.length < questionCount) {
-    //   return res.status(400).json({
-    //     error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
-    //   });
-    // }
+    if (allQuestions.length < questionCount) {
+      return res.status(400).json({
+        error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
+      });
+    }
     const selectedQuestions = allQuestions.slice(0, questionCount);
     const totalPoints = selectedQuestions.length * 5;
     // Passing score: 60% of total points
@@ -758,6 +758,31 @@ router.get("/:id", async (req, res, next) => {
     }
 
     res.json({ contest });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Unregister from a contest
+router.delete("/:id/unregister", async (req, res, next) => {
+  try {
+    const registration = await prisma.contestRegistration.findUnique({
+      where: {
+        contestId_userId: { contestId: req.params.id, userId: req.user.id },
+      },
+    });
+
+    if (!registration) {
+      return res.status(404).json({ error: "Registration not found" });
+    }
+
+    await prisma.contestRegistration.delete({
+      where: {
+        contestId_userId: { contestId: req.params.id, userId: req.user.id },
+      },
+    });
+
+    res.json({ success: true, message: "Successfully unregistered from contest" });
   } catch (error) {
     next(error);
   }
