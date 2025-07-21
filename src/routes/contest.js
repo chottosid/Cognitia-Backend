@@ -3,6 +3,16 @@ import { prisma } from "../lib/database.js";
 
 const router = express.Router();
 
+// Helper to compute contest status dynamically
+function getContestStatus(contest) {
+  const now = new Date();
+  const start = new Date(contest.startTime);
+  const end = new Date(contest.endTime);
+  if (now < start) return "UPCOMING";
+  if (now >= start && now <= end) return "ONGOING";
+  return "FINISHED";
+}
+
 // Get all available contests
 router.get("/", async (req, res, next) => {
   try {
@@ -30,6 +40,7 @@ router.get("/", async (req, res, next) => {
 
     const enhancedContests = contests.map((contest) => ({
       ...contest,
+      status: getContestStatus(contest), // <-- dynamically computed
       questionCount: contest._count.assignments,
       registeredUsers: contest._count.registrations,
       isRegistered: contest.registrations.length > 0,
@@ -103,6 +114,7 @@ router.get("/registered", async (req, res, next) => {
 
     const contests = registrations.map((reg) => ({
       ...reg.contest,
+      status: getContestStatus(reg.contest), // <-- dynamically computed
       questionCount: reg.contest._count.assignments,
       registrationTime: reg.registrationTime,
     }));
@@ -590,6 +602,9 @@ router.get("/:id/status", async (req, res, next) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
+    // Dynamically compute status
+    contest.status = getContestStatus(contest);
+
     const currentTime = new Date();
     const timeToStart = Math.max(
       0,
@@ -746,7 +761,6 @@ router.get("/:id", async (req, res, next) => {
   try {
     const contest = await prisma.contest.findUnique({
       where: { 
-        // Add any includes you want (e.g., assignments, registrations, etc.)
         id: req.params.id, 
         status: req.query.status,
       },
@@ -756,6 +770,9 @@ router.get("/:id", async (req, res, next) => {
     if (!contest) {
       return res.status(404).json({ error: "Contest not found" });
     }
+
+    // Dynamically compute status
+    contest.status = getContestStatus(contest);
 
     res.json({ contest });
   } catch (error) {
