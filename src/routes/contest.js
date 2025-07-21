@@ -616,6 +616,135 @@ router.get("/:id/status", async (req, res, next) => {
   }
 });
 
+// Create a new contest (auto-generate questions)
+router.post("/create", async (req, res, next) => {
+  try {
+    const {
+      title,
+      description,
+      topics = [],
+      difficulty = "MEDIUM",
+      startTime,
+      endTime,
+      questionCount = 20,
+      eligibility = null,
+      isVirtual = false,
+    } = req.body;
+
+    // Validate required fields
+    if (!title || !description || !startTime || !endTime) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+    if (questionCount < 1) {
+      return res.status(400).json({ error: "questionCount must be at least 1" });
+    }
+    if (new Date(startTime) >= new Date(endTime)) {
+      return res.status(400).json({ error: "startTime must be before endTime" });
+    }
+
+    // Difficulty distribution (same as modelTest)
+    const difficultyDistribution = {
+      EASY: { easy: 0.7, medium: 0.2, hard: 0.1 },
+      MEDIUM: { easy: 0.3, medium: 0.5, hard: 0.2 },
+      HARD: { easy: 0.1, medium: 0.3, hard: 0.6 },
+    };
+    const distribution =
+      difficultyDistribution[difficulty] || difficultyDistribution["MEDIUM"];
+    const questionCounts = {
+      easy: Math.round(questionCount * distribution.easy),
+      medium: Math.round(questionCount * distribution.medium),
+      hard: Math.round(questionCount * distribution.hard),
+    };
+
+    // Build where clause for question selection
+    const whereBase = {};
+    if (topics.length) whereBase.topics = { hasSome: topics };
+    if (difficulty) whereBase.difficulty = difficulty;
+
+    // Fetch questions by difficulty
+    const fetchQuestions = async (level, count) => {
+      return await prisma.questionBank.findMany({
+        where: { ...whereBase, difficulty: level },
+        take: count,
+        orderBy: { createdAt: "desc" },
+      });
+    };
+    const [easyQuestions, mediumQuestions, hardQuestions] = await Promise.all([
+      fetchQuestions("EASY", questionCounts.easy),
+      fetchQuestions("MEDIUM", questionCounts.medium),
+      fetchQuestions("HARD", questionCounts.hard),
+    ]);
+    const allQuestions = [
+      ...easyQuestions,
+      ...mediumQuestions,
+      ...hardQuestions,
+    ];
+    if (allQuestions.length < questionCount) {
+      return res.status(400).json({
+        error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
+      });
+    }
+    const selectedQuestions = allQuestions.slice(0, questionCount);
+    const totalPoints = selectedQuestions.length * 5;
+    // Passing score: 60% of total points
+    const passingScore = Math.ceil(totalPoints * 0.6);
+
+    // Organizer: use req.user.id if available, else null
+    const organizerId = req.user?.id || null;
+
+    // Create contest and assignments
+    const contest = await prisma.contest.create({
+      data: {
+        title,
+        description,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        status: "UPCOMING",
+        difficulty,
+        topics,
+        eligibility,
+        isVirtual,
+        participants: 0,
+        organizerId,
+        assignments: {
+          create: selectedQuestions.map((question) => ({
+            questionId: question.id,
+            points: 5,
+          })),
+        },
+      },
+      include: { assignments: { include: { question: true } } },
+    });
+
+    // Prepare response
+    const response = {
+      id: contest.id,
+      title: contest.title,
+      description: contest.description,
+      startTime: contest.startTime,
+      endTime: contest.endTime,
+      status: contest.status,
+      difficulty: contest.difficulty,
+      topics: contest.topics,
+      eligibility: contest.eligibility,
+      isVirtual: contest.isVirtual,
+      totalPoints: totalPoints,
+      passingScore: passingScore,
+      questions: contest.assignments.map((assignment) => ({
+        id: assignment.question.id,
+        question: assignment.question.question,
+        options: assignment.question.options,
+        subject: assignment.question.subject,
+        topics: assignment.question.topics,
+        points: assignment.points,
+      })),
+    };
+    res.status(201).json({ contest: response });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get contest details by ID
 router.get("/:id", async (req, res, next) => {
   try {
