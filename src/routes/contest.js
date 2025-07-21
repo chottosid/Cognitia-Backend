@@ -628,7 +628,6 @@ router.post("/create", async (req, res, next) => {
       endTime,
       questionCount = 20,
       eligibility = null,
-      isVirtual = false,
     } = req.body;
 
     // Validate required fields
@@ -679,11 +678,11 @@ router.post("/create", async (req, res, next) => {
       ...mediumQuestions,
       ...hardQuestions,
     ];
-    if (allQuestions.length < questionCount) {
-      return res.status(400).json({
-        error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
-      });
-    }
+    // if (allQuestions.length < questionCount) {
+    //   return res.status(400).json({
+    //     error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
+    //   });
+    // }
     const selectedQuestions = allQuestions.slice(0, questionCount);
     const totalPoints = selectedQuestions.length * 5;
     // Passing score: 60% of total points
@@ -703,9 +702,7 @@ router.post("/create", async (req, res, next) => {
         difficulty,
         topics,
         eligibility,
-        isVirtual,
         participants: 0,
-        organizerId,
         assignments: {
           create: selectedQuestions.map((question) => ({
             questionId: question.id,
@@ -727,7 +724,6 @@ router.post("/create", async (req, res, next) => {
       difficulty: contest.difficulty,
       topics: contest.topics,
       eligibility: contest.eligibility,
-      isVirtual: contest.isVirtual,
       totalPoints: totalPoints,
       passingScore: passingScore,
       questions: contest.assignments.map((assignment) => ({
