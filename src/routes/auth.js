@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import { body } from "express-validator";
 import { generateToken, authenticateToken } from "../middleware/auth.js";
 import { sendOtpEmail } from "../utils/mailer.js";
-import crypto from "crypto";
+import otpGenerator from "otp-generator";
 import multer from "multer";
 
 import {
@@ -56,7 +56,7 @@ router.post(
       }
 
       // Generate OTP
-      const otp = crypto.randomInt(100000, 999999).toString();
+      const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false, alphabets: false });
       const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
       // Hash password
