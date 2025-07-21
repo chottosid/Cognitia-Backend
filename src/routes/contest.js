@@ -616,4 +616,26 @@ router.get("/:id/status", async (req, res, next) => {
   }
 });
 
+// Get contest details by ID
+router.get("/:id", async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { 
+        // Add any includes you want (e.g., assignments, registrations, etc.)
+        id: req.params.id, 
+        status: req.query.status,
+      },
+      
+    });
+
+    if (!contest) {
+      return res.status(404).json({ error: "Contest not found" });
+    }
+
+    res.json({ contest });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
