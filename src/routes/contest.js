@@ -693,11 +693,11 @@ router.post("/create", async (req, res, next) => {
       ...mediumQuestions,
       ...hardQuestions,
     ];
-    if (allQuestions.length < questionCount) {
-      return res.status(400).json({
-        error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
-      });
-    }
+    // if (allQuestions.length < questionCount) {
+    //   return res.status(400).json({
+    //     error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
+    //   });
+    // }
     const selectedQuestions = allQuestions.slice(0, questionCount);
     const totalPoints = selectedQuestions.length * 5;
     // Passing score: 60% of total points
