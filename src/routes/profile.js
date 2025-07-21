@@ -69,6 +69,56 @@ router.get("/", async (req, res) => {
   }
 });
 
+// Get current user's profile (GET /me)
+router.get("/me", async (req, res) => {
+  try {
+    console.log("=== PROFILE /me ROUTE ACCESSED ===");
+    console.log("req.user:", req.user);
+    
+    if (!req.user || !req.user.id) {
+      console.log("❌ No user found in request");
+      return res.status(401).json({ 
+        error: "Unauthorized: user not found in request." 
+      });
+    }
+
+    const user = req.user;
+    console.log("✅ User found:", user.id, user.email);
+
+    // Return only basic user information - no stats needed
+    const profileData = {
+      id: user.id,
+      name: user.name || "",
+      email: user.email || "",
+      isVerified: true,
+      joinedAt: user.createdAt || new Date().toISOString(),
+      updatedAt: user.updatedAt || new Date().toISOString(),
+      avatar: user.avatar || null,
+      bio: user.bio || "",
+      institution: user.institution || "",
+      location: user.location || "",
+      role: user.role || "Student",
+      website: user.website || "",
+      major: user.major || null,
+      graduationYear: user.graduationYear || null,
+    };
+
+    console.log("✅ Sending profile data (/me):", profileData);
+
+    res.json({
+      success: true,
+      user: profileData,
+    });
+  } catch (error) {
+    console.error("❌ Error in profile /me route:", error);
+    console.error("❌ Error stack:", error.stack);
+    res.status(500).json({ 
+      error: "Internal server error",
+      message: error.message 
+    });
+  }
+});
+
 // Update user profile
 router.put("/edit", async (req, res) => {
   try {
@@ -229,4 +279,3 @@ router.put("/change-password", async (req, res) => {
 });
 
 export default router;
-
