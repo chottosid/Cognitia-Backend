@@ -44,7 +44,10 @@ router.get("/", async (req, res) => {
     const uniqueNotes = Array.from(notesMap.values());
 
     res.json({
-      notes: uniqueNotes,
+      notes: uniqueNotes.map((note) => ({
+        ...note,
+        groupName: note.notesGroup?.name || "",
+      })),
     });
   } catch (error) {
     console.error("Get notes error:", error);
@@ -64,7 +67,12 @@ router.get("/my", async (req, res) => {
       orderBy: { updatedAt: "desc" },
     });
 
-    res.json({ notes });
+    res.json({
+      notes: notes.map((note) => ({
+        ...note,
+        groupName: note.notesGroup?.name || "",
+      })),
+    });
   } catch (error) {
     console.error("Get my notes error:", error);
     res.status(500).json({ error: "Failed to fetch user notes" });
