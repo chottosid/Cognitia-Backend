@@ -224,6 +224,7 @@ router.get("/me", authenticateToken, async (req, res) => {
         grade: true,
         location: true,
         website: true,
+        role: true,
       },
     });
 

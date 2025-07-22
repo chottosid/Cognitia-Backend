@@ -85,6 +85,12 @@ router.post("/:id/register", async (req, res, next) => {
       data: { contestId: req.params.id, userId: req.user.id },
     });
 
+    // Increment participants count
+    await prisma.contest.update({
+      where: { id: req.params.id },
+      data: { participants: { increment: 1 } },
+    });
+
     res.json({ success: true, message: "Successfully registered for contest" });
   } catch (error) {
     next(error);
@@ -527,7 +533,7 @@ router.get("/attempt/:attemptId/results", async (req, res, next) => {
         percentage: Math.round(
           (attempt.score /
             attempt.contest.assignments.reduce((sum, a) => sum + a.points, 0)) *
-            100
+          100
         ),
       },
       contest: {
@@ -683,6 +689,9 @@ router.post("/create", async (req, res, next) => {
         orderBy: { createdAt: "desc" },
       });
     };
+    // console.log({ where: { ...whereBase, difficulty: "MEDIUM" } });
+    // console.log(fetchQuestions("MEDIUM", 10))
+
     const [easyQuestions, mediumQuestions, hardQuestions] = await Promise.all([
       fetchQuestions("EASY", questionCounts.easy),
       fetchQuestions("MEDIUM", questionCounts.medium),
@@ -693,11 +702,11 @@ router.post("/create", async (req, res, next) => {
       ...mediumQuestions,
       ...hardQuestions,
     ];
-    // if (allQuestions.length < questionCount) {
-    //   return res.status(400).json({
-    //     error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
-    //   });
-    // }
+    if (allQuestions.length < questionCount) {
+      return res.status(400).json({
+        error: `Only ${allQuestions.length} questions available. Requested ${questionCount}.`,
+      });
+    }
     const selectedQuestions = allQuestions.slice(0, questionCount);
     const totalPoints = selectedQuestions.length * 5;
     // Passing score: 60% of total points
@@ -760,11 +769,11 @@ router.post("/create", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const contest = await prisma.contest.findUnique({
-      where: { 
-        id: req.params.id, 
+      where: {
+        id: req.params.id,
         status: req.query.status,
       },
-      
+
     });
 
     if (!contest) {
@@ -797,6 +806,12 @@ router.delete("/:id/unregister", async (req, res, next) => {
       where: {
         contestId_userId: { contestId: req.params.id, userId: req.user.id },
       },
+    });
+
+    // Decrement participants count
+    await prisma.contest.update({
+      where: { id: req.params.id },
+      data: { participants: { decrement: 1 } },
     });
 
     res.json({ success: true, message: "Successfully unregistered from contest" });

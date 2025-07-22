@@ -281,10 +281,12 @@ router.post("/create", async (req, res, next) => {
 
     const modelTest = await prisma.modelTest.create({
       data: {
-        title: `Generated Test - ${subjects.join(", ")}`,
-        description: `Auto-generated test for ${subjects.join(
-          ", "
-        )} (${difficulty})`,
+        // title: `Generated Test - ${subjects.join(", ")}`,
+        // description: `Auto-generated test for ${subjects.join(
+        //   ", "
+        // )} (${difficulty})`,
+        title,
+        description,
         timeLimit,
         subjects,
         topics,
