@@ -13,12 +13,8 @@ model User {
   name                 String
   password             String
   role                 UserRole              @default(STUDENT)
-  avatar               Bytes?                 // Store image data directly in the database
   bio                  String?
   institution          String?
-  graduationYear       Int?
-  major                String?
-  grade                String?
   location             String?
   website              String?
   createdAt            DateTime              @default(now())
@@ -26,41 +22,43 @@ model User {
   otp                  String?
   otpExpires           DateTime?
   verified             Boolean               @default(false)
-
-  // Relations
+  grade                String?
+  graduationYear       Int?
+  major                String?
+  avatar               Bytes?
   answerVotes          AnswerVote[]
   answers              Answer[]
+  availabilities       Availability[]
+  contestAttempts      ContestAttempt[]
   contestRegistrations ContestRegistration[]
-  contestAttempts      ContestAttempt[]      // Add this relation
+  contests             Contest[]
   modelTests           ModelTest[]
   notes                Note[]
   notesGroups          NotesGroup[]
   notifications        Notification[]
   questionVotes        QuestionVote[]
   questions            Question[]
+  sessionFeedbacks     SessionFeedback[]
   sessions             StudySession[]
   tasks                Task[]
-  availabilities       Availability[]
-  sessionFeedbacks     SessionFeedback[]
-  testAttempts          TestAttempt[]      // Add this relation
+  testAttempts         TestAttempt[]
+
   @@map("users")
 }
 
 model Question {
-  id         String         @id @default(cuid())
-  title      String
-  body       String
-  tags       String[]
-  views      Int            @default(0)
-  subject    String?
-  authorId   String
-  createdAt  DateTime       @default(now())
-  updatedAt  DateTime       @updatedAt
-
-  // Relations
-  answers    Answer[]
-  votes      QuestionVote[]
-  author     User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  id        String         @id @default(cuid())
+  title     String
+  body      String
+  tags      String[]
+  views     Int            @default(0)
+  subject   String?
+  authorId  String
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  answers   Answer[]
+  votes     QuestionVote[]
+  author    User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@map("questions")
 }
@@ -112,8 +110,6 @@ model NotesGroup {
   userId      String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now())
-
-  // Relations
   notes       Note[]
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -124,14 +120,12 @@ model Note {
   id           String     @id @default(cuid())
   title        String
   visibility   Visibility @default(PRIVATE)
-  file         Bytes      
-  tags         String[]   @default([])
   authorId     String
   notesGroupId String
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @default(now())
-
-  // Relations
+  tags         String[]   @default([])
+  file         Bytes
   author       User       @relation(fields: [authorId], references: [id], onDelete: Cascade)
   notesGroup   NotesGroup @relation(fields: [notesGroupId], references: [id], onDelete: Cascade)
 
@@ -142,88 +136,80 @@ model Task {
   id            String         @id @default(cuid())
   title         String
   description   String?
-  file          Bytes?         // Store file data directly in the database
   dueDate       DateTime
   status        TaskStatus     @default(NOT_STARTED)
   priority      Priority       @default(MEDIUM)
   subjectArea   String
-  tags          String[]       @default([])
-  estimatedTime Int?    // Estimated time in minutes
+  estimatedTime Int?
   completedAt   DateTime?
   userId        String
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @default(now())
-
-  // Relations
-  user     User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessions StudySession[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @default(now())
+  tags          String[]       @default([])
+  file          Bytes?
+  sessions      StudySession[]
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("tasks")
 }
 
 model StudySession {
-  id        String    @id @default(cuid())
-  startTime DateTime
-  endTime   DateTime
-  goal      String?
-  notes     String?
-  completed Boolean   @default(false)
-  userId    String
-  taskId    String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now())
-  task      Task?     @relation(fields: [taskId], references: [id])
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sessionFeedback      SessionFeedback?
+  id              String           @id @default(cuid())
+  startTime       DateTime
+  endTime         DateTime
+  goal            String?
+  completed       Boolean          @default(false)
+  userId          String
+  taskId          String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @default(now())
+  notes           String?
+  sessionFeedback SessionFeedback?
+  task            Task?            @relation(fields: [taskId], references: [id])
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("study_sessions")
 }
 
 model Availability {
-  id 	    String   @id @default(cuid())
+  id        String   @id @default(cuid())
   startTime DateTime
   endTime   DateTime
   userId    String
-  
-  // Relations
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@map("availabilities")
 }
 
 model SessionFeedback {
-  id                String   @id @default(cuid())
-  userId            String
-  sessionId         String   @unique
-  confidenceScore   Int
-  feedbackAt        DateTime
-
-  // Relations
-  studysession      StudySession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String       @id @default(cuid())
+  userId          String
+  sessionId       String       @unique
+  confidenceScore Int
+  feedbackAt      DateTime
+  studysession    StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("session_feedback")
 }
 
 model ModelTest {
-  id                   String                 @id @default(cuid())
-  title                String
-  description          String
-  timeLimit            Int
-  subjects             String[]               @default([])
-  topics               String[]               @default([])
-  difficulty           Difficulty             @default(MEDIUM)
-  isCustom             Boolean                @default(false)
-  passingScore         Int
-  totalPoints          Int
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
-
-  // Relations
-  assignments          QuestionAssignment[]
-  userId               String
-
-  user                 User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  attempts             TestAttempt[]        
+  id           String               @id @default(cuid())
+  title        String
+  description  String
+  timeLimit    Int
+  subjects     String[]             @default([])
+  topics       String[]             @default([])
+  difficulty   Difficulty           @default(MEDIUM)
+  isCustom     Boolean              @default(false)
+  passingScore Int
+  totalPoints  Int
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  userId       String
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments  QuestionAssignment[]
+  attempts     TestAttempt[]
 
   @@map("model_tests")
 }
@@ -238,66 +224,58 @@ model TestAttempt {
   correctAnswers Int?
   totalQuestions Int
   answers        Json          @default("{}")
-  testId         String
   userId         String
-  autoSubmitted  Boolean       @default(false)
-  lastActivity   DateTime?
+  testId         String
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @default(now())
-
-  // Relations
+  autoSubmitted  Boolean       @default(false)
+  lastActivity   DateTime?
   test           ModelTest     @relation(fields: [testId], references: [id], onDelete: Cascade)
-  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade) // This now works
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("test_attempts")
 }
 
 model Notification {
-  id          String           @id @default(cuid())
-  type        NotificationType
-  title       String
-  message     String
-  isRead      Boolean          @default(false)
-  userId      String
-  createdAt   DateTime         @default(now())
-
-  // Relations
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String
+  isRead    Boolean          @default(false)
+  userId    String
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
 
 model QuestionBank {
-  id            String     @id @default(cuid())
+  id            String               @id @default(cuid())
   question      String
   explanation   String?
   options       Json
   correctAnswer Int
   subject       String
-  topics        String[]   @default([])
-  difficulty    Difficulty @default(MEDIUM)
-  createdAt     DateTime   @default(now())
-  updatedAt     DateTime   @default(now())
-
-  // Relations
+  topics        String[]             @default([])
+  difficulty    Difficulty           @default(MEDIUM)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @default(now())
   assignments   QuestionAssignment[]
 
-  @@map("question_banks") // Added @@map for consistency
+  @@map("question_banks")
 }
 
 model QuestionAssignment {
-  id             String   @id @default(cuid())
-  questionId     String
-  modelTestId    String?
-  contestId      String?
-  points         Int      @default(5)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-
-  // Relations
-  question       QuestionBank @relation(fields: [questionId], references: [id], onDelete: Cascade)
-  modelTest      ModelTest?   @relation(fields: [modelTestId], references: [id], onDelete: Cascade)
-  contest        Contest?     @relation(fields: [contestId], references: [id])
+  id          String       @id @default(cuid())
+  questionId  String
+  modelTestId String?
+  contestId   String?
+  points      Int          @default(5)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  contest     Contest?     @relation(fields: [contestId], references: [id])
+  modelTest   ModelTest?   @relation(fields: [modelTestId], references: [id], onDelete: Cascade)
+  question    QuestionBank @relation(fields: [questionId], references: [id], onDelete: Cascade)
 
   @@map("question_assignments")
 }
@@ -315,11 +293,12 @@ model Contest {
   eligibility   String?
   createdAt     DateTime              @default(now())
   updatedAt     DateTime              @default(now())
-
-  // Relations
+  createdBy     String?
+  attempts      ContestAttempt[]
   registrations ContestRegistration[]
+  creator       User?                 @relation(fields: [createdBy], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "Contest_createdBy_fkey")
   assignments   QuestionAssignment[]
-  attempts      ContestAttempt[]      // Add this relation
+
   @@map("contests")
 }
 
@@ -328,8 +307,6 @@ model ContestRegistration {
   contestId        String
   userId           String
   registrationTime DateTime @default(now())
-
-  // Relations
   contest          Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
   user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -337,7 +314,6 @@ model ContestRegistration {
   @@map("contest_registrations")
 }
 
-// Add ContestAttempt model
 model ContestAttempt {
   id             String        @id @default(cuid())
   status         AttemptStatus @default(IN_PROGRESS)
@@ -353,12 +329,10 @@ model ContestAttempt {
   lastActivity   DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @default(now())
-
-  // Relations
   contest        Contest       @relation(fields: [contestId], references: [id], onDelete: Cascade)
   user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([contestId, userId]) // One attempt per user per contest
+  @@unique([contestId, userId])
   @@map("contest_attempts")
 }
 
@@ -416,4 +390,3 @@ enum NotificationType {
   MENTION
   SYSTEM
 }
-

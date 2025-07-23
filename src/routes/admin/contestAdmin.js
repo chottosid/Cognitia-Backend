@@ -14,6 +14,30 @@ const isAdmin = async (req, res, next) => {
 // Apply admin middleware to all routes
 router.use(isAdmin);
 
+// Get contests created by the current admin user
+router.get("/my-contests", async (req, res, next) => {
+  try {
+    if (req.user.role !== "ADMIN") {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const contests = await prisma.contest.findMany({
+      where: { createdBy: req.user.id },
+      orderBy: { createdAt: "desc" }
+    });
+    const now = new Date();
+    const enhancedContests = contests.map((contest) => {
+      let status = contest.status;
+      if (now >= contest.endTime) {
+        status = "FINISHED";
+      }
+      return { ...contest, status };
+    });
+    res.json({ contests: enhancedContests });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Get all questions with filtering for contest creation
 router.get("/questions", async (req, res, next) => {
   try {
@@ -60,6 +84,30 @@ router.get("/questions", async (req, res, next) => {
         totalCount,
       },
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get all questions for the question bank panel (with optional filtering)
+router.get("/questions/bank", async (req, res, next) => {
+  try {
+    const { search = "", difficulty, topic } = req.query;
+    const where = {};
+    if (difficulty && difficulty !== "all") {
+      where.difficulty = difficulty;
+    }
+    if (topic) {
+      where.topics = { has: topic };
+    }
+    if (search) {
+      where.title = { contains: search, mode: "insensitive" };
+    }
+    const questions = await prisma.questionBank.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+    });
+    res.json({ questions });
   } catch (error) {
     next(error);
   }
@@ -135,9 +183,9 @@ router.put("/contests/:id", async (req, res, next) => {
     });
 
     if (!contest) return res.status(404).json({ error: "Contest not found" });
-    if (contest.status !== "UPCOMING" && contest._count.attempts > 0) {
-      return res.status(400).json({ error: "Cannot modify contest after attempts have started" });
-    }
+    // if (contest.status !== "UPCOMING" && contest._count.attempts > 0) {
+    //   return res.status(400).json({ error: "Cannot modify contest after attempts have started" });
+    // }
 
     const updatedContest = await prisma.contest.update({
       where: { id: req.params.id },
@@ -173,9 +221,9 @@ router.put("/contests/:id/questions", async (req, res, next) => {
     });
 
     if (!contest) return res.status(404).json({ error: "Contest not found" });
-    if (contest.status !== "UPCOMING" && contest._count.attempts > 0) {
-      return res.status(400).json({ error: "Cannot modify contest after attempts have started" });
-    }
+    // if (contest.status !== "UPCOMING" && contest._count.attempts > 0) {
+    //   return res.status(400).json({ error: "Cannot modify contest after attempts have started" });
+    // }
 
     const questionIds = questions.map(q => q.questionId);
     const validQuestions = await prisma.questionBank.findMany({
@@ -392,10 +440,12 @@ router.put("/contests/:id", async (req, res, next) => {
 // Add multiple questions to contest
 router.post("/contests/:id/questions", async (req, res, next) => {
   try {
-    const { questions } = req.body; // Array of {questionId, points}
-
+    let questions = req.body.questions;
+    if (!questions && req.body.questionId) {
+      questions = [{ questionId: req.body.questionId }];
+    }
     if (!questions || !Array.isArray(questions) || questions.length === 0) {
-      return res.status(400).json({ error: "Questions array is required" });
+      return res.status(400).json({ error: "Questions array or questionId is required" });
     }
 
     const contest = await prisma.contest.findUnique({
@@ -772,7 +822,7 @@ router.get("/contests/:id/participants", async (req, res, next) => {
 });
 
 // Delete contest
-router.delete("/contests/:id", async (req, res, next) => {
+router.delete("/delete/:id", async (req, res, next) => {
   try {
     const contest = await prisma.contest.findUnique({
       where: { id: req.params.id },
@@ -783,12 +833,12 @@ router.delete("/contests/:id", async (req, res, next) => {
       return res.status(404).json({ error: "Contest not found" });
     }
 
-    if (contest._count.attempts > 0) {
-      return res.status(400).json({
-        error:
-          "Cannot delete contest with existing attempts. Consider marking it as finished instead.",
-      });
-    }
+    // if (contest._count.attempts > 0) {
+    //   return res.status(400).json({
+    //     error:
+    //       "Cannot delete contest with existing attempts. Consider marking it as finished instead.",
+    //   });
+    // }
 
     await prisma.contest.delete({
       where: { id: req.params.id },
@@ -1168,6 +1218,284 @@ router.get("/contests/:id/export", async (req, res, next) => {
     }
 
     res.json(exportData);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Save contest as draft
+router.post("/contests/draft", async (req, res, next) => {
+  try {
+    const {
+      title,
+      description,
+      startTime,
+      endTime,
+      difficulty,
+      topics,
+      eligibility,
+      isVirtual,
+    } = req.body;
+
+    if (!title || !description || !startTime || !endTime) {
+      return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    const contest = await prisma.contest.create({
+      data: {
+        title,
+        description,
+        startTime: new Date(startTime),
+        endTime: new Date(endTime),
+        difficulty,
+        topics,
+        eligibility,
+        isVirtual,
+        status: "DRAFT",
+      },
+    });
+
+    res.status(201).json({ contest });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Publish a draft contest
+router.post("/contests/:id/publish", async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!contest) return res.status(404).json({ error: "Contest not found" });
+    if (contest.status !== "DRAFT") {
+      return res.status(400).json({ error: "Only draft contests can be published" });
+    }
+
+    const now = new Date();
+    let newStatus = "UPCOMING";
+    if (now >= contest.startTime && now < contest.endTime) newStatus = "ONGOING";
+    if (now >= contest.endTime) newStatus = "FINISHED";
+
+    const updatedContest = await prisma.contest.update({
+      where: { id: req.params.id },
+      data: { status: newStatus },
+    });
+
+    res.json({ contest: updatedContest });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 1. Get contest details for admin
+router.get('/:id/manage', async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { id: req.params.id },
+      include: {
+        assignments: {
+          include: { question: true },
+          orderBy: { createdAt: 'asc' },
+        },
+        _count: { select: { registrations: true, attempts: true } },
+      },
+    });
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    const detailedContest = {
+      ...contest,
+      questions: contest.assignments.map((assignment) => ({
+        assignmentId: assignment.id,
+        id: assignment.question.id,
+        question: assignment.question.question,
+        options: assignment.question.options,
+        correctAnswer: assignment.question.correctAnswer,
+        explanation: assignment.question.explanation,
+        subject: assignment.question.subject,
+        topics: assignment.question.topics,
+        difficulty: assignment.question.difficulty,
+        points: assignment.points,
+      })),
+      registeredUsers: contest._count.registrations,
+      totalAttempts: contest._count.attempts,
+      canModify: contest.status === 'UPCOMING' && contest._count.attempts === 0,
+      assignments: undefined,
+      _count: undefined,
+    };
+    res.json({ contest: detailedContest });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 2. Update contest
+router.put('/:id', async (req, res, next) => {
+  try {
+    const { title, description, startTime, endTime, difficulty, topics, eligibility } = req.body;
+    const contest = await prisma.contest.findUnique({
+      where: { id: req.params.id },
+      include: { _count: { select: { attempts: true } } },
+    });
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    // if (contest.status !== 'UPCOMING' && contest._count.attempts > 0) {
+    //   return res.status(400).json({ error: 'Cannot modify contest after attempts have started' });
+    // }
+    const updateData = {};
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (difficulty !== undefined) updateData.difficulty = difficulty;
+    if (topics !== undefined) updateData.topics = topics;
+    if (eligibility !== undefined) updateData.eligibility = eligibility;
+    if (startTime || endTime) {
+      const newStartTime = startTime ? new Date(startTime) : contest.startTime;
+      const newEndTime = endTime ? new Date(endTime) : contest.endTime;
+      if (newStartTime >= newEndTime) {
+        return res.status(400).json({ error: 'End time must be after start time' });
+      }
+      updateData.startTime = newStartTime;
+      updateData.endTime = newEndTime;
+      const now = new Date();
+      if (now >= newStartTime && now <= newEndTime) {
+        updateData.status = 'ONGOING';
+      } else if (now > newEndTime) {
+        updateData.status = 'FINISHED';
+      } else {
+        updateData.status = 'UPCOMING';
+      }
+    }
+    const updatedContest = await prisma.contest.update({
+      where: { id: req.params.id },
+      data: updateData,
+    });
+    res.json({ contest: updatedContest });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 3. Publish contest
+router.post('/:id/publish', async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({ where: { id: req.params.id } });
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    if (contest.status !== 'DRAFT') {
+      return res.status(400).json({ error: 'Only draft contests can be published' });
+    }
+    const now = new Date();
+    let newStatus = 'UPCOMING';
+    if (now >= contest.startTime && now < contest.endTime) newStatus = 'ONGOING';
+    if (now >= contest.endTime) newStatus = 'FINISHED';
+    const updatedContest = await prisma.contest.update({
+      where: { id: req.params.id },
+      data: { status: newStatus },
+    });
+    res.json({ contest: updatedContest });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 4. Add a single question to contest
+router.post('/:id/questions', async (req, res, next) => {
+  try {
+    let questions = req.body.questions;
+    if (!questions && req.body.questionId) {
+      questions = [{ questionId: req.body.questionId }];
+    }
+    if (!questions || !Array.isArray(questions) || questions.length === 0) {
+      return res.status(400).json({ error: 'Questions array or questionId is required' });
+    }
+    const contest = await prisma.contest.findUnique({
+      where: { id: req.params.id },
+      include: { _count: { select: { attempts: true } } },
+    });
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    if (contest.status !== 'UPCOMING' && contest._count.attempts > 0) {
+      return res.status(400).json({ error: 'Cannot modify questions after participants have started attempting' });
+    }
+    const questionIds = questions.map((q) => q.questionId);
+    const validQuestions = await prisma.questionBank.findMany({ where: { id: { in: questionIds } } });
+    if (validQuestions.length !== questionIds.length) {
+      return res.status(400).json({ error: 'Some questions do not exist' });
+    }
+    // Check for existing assignments
+    const existingAssignments = await prisma.questionAssignment.findMany({
+      where: { contestId: req.params.id, questionId: { in: questionIds } },
+    });
+    const existingQuestionIds = existingAssignments.map((a) => a.questionId);
+    const newQuestions = questions.filter((q) => !existingQuestionIds.includes(q.questionId));
+    if (newQuestions.length === 0) {
+      return res.status(400).json({ error: 'All questions are already assigned to this contest' });
+    }
+    await prisma.questionAssignment.createMany({
+      data: newQuestions.map((q) => ({
+        questionId: q.questionId,
+        contestId: req.params.id,
+        points: q.points || 5,
+      })),
+    });
+    res.json({
+      success: true,
+      message: `${newQuestions.length} questions added to contest`,
+      addedQuestions: newQuestions.length,
+      skippedQuestions: existingQuestionIds.length,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// 5. Remove a single question from contest
+router.delete('/:id/questions/:questionId', async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({
+      where: { id: req.params.id },
+      include: { _count: { select: { attempts: true, assignments: true } } },
+    });
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    if (contest.status !== 'UPCOMING' && contest._count.attempts > 0) {
+      return res.status(400).json({ error: 'Cannot modify questions after participants have started attempting' });
+    }
+    const remainingQuestions = contest._count.assignments - 1;
+    if (remainingQuestions <= 0) {
+      return res.status(400).json({ error: 'Contest must have at least one question' });
+    }
+    const deletedAssignment = await prisma.questionAssignment.deleteMany({
+      where: {
+        contestId: req.params.id,
+        questionId: req.params.questionId,
+      },
+    });
+    res.json({
+      success: true,
+      message: `Question removed from contest`,
+      removedQuestions: deletedAssignment.count,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Update contest status based on endTime
+router.patch('/:id/status', async (req, res, next) => {
+  try {
+    const contest = await prisma.contest.findUnique({ where: { id: req.params.id } });
+    if (!contest) return res.status(404).json({ error: 'Contest not found' });
+    const now = new Date();
+    let newStatus = contest.status;
+    if (now >= contest.endTime) {
+      newStatus = 'FINISHED';
+    }
+    if (newStatus !== contest.status) {
+      const updatedContest = await prisma.contest.update({
+        where: { id: req.params.id },
+        data: { status: newStatus },
+      });
+      return res.json({ contest: updatedContest });
+    } else {
+      return res.json({ contest });
+    }
   } catch (error) {
     next(error);
   }

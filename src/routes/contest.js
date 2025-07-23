@@ -38,17 +38,26 @@ router.get("/", async (req, res, next) => {
       },
     });
 
-    const enhancedContests = contests.map((contest) => ({
-      ...contest,
-      status: getContestStatus(contest), // <-- dynamically computed
-      questionCount: contest._count.assignments,
-      registeredUsers: contest._count.registrations,
-      isRegistered: contest.registrations.length > 0,
-      hasAttempted: contest.attempts.length > 0,
-      _count: undefined,
-      registrations: undefined,
-      attempts: undefined,
-    }));
+    const now = new Date();
+    const enhancedContests = contests.map((contest) => {
+      let status = contest.status;
+      if (now >= contest.endTime) {
+        status = "FINISHED";
+      } else {
+        status = getContestStatus(contest);
+      }
+      return {
+        ...contest,
+        status,
+        questionCount: contest._count.assignments,
+        registeredUsers: contest._count.registrations,
+        isRegistered: contest.registrations.length > 0,
+        hasAttempted: contest.attempts.length > 0,
+        _count: undefined,
+        registrations: undefined,
+        attempts: undefined,
+      };
+    });
 
     res.json({ contests: enhancedContests });
   } catch (error) {
@@ -727,6 +736,7 @@ router.post("/create", async (req, res, next) => {
         topics,
         eligibility,
         participants: 0,
+        createdBy: organizerId, // Add createdBy field
         assignments: {
           create: selectedQuestions.map((question) => ({
             questionId: question.id,
