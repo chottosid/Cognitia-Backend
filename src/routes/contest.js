@@ -380,7 +380,6 @@ router.post("/attempt/:attemptId/answer", async (req, res, next) => {
       include: {
         contest: {
           include: { assignments: true },
-          select: { id: true, endTime: true, assignments: true },
         },
       },
     });
