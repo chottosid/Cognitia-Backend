@@ -21,6 +21,7 @@
     "express-validator": "latest",
     "file-type": "^21.0.0",
     "helmet": "latest",
+    "ioredis": "^5.6.1",
     "jsonwebtoken": "latest",
     "morgan": "latest",
     "multer": "^2.0.1",
@@ -30,9 +31,11 @@
     "passport": "^0.7.0",
     "passport-facebook": "^3.0.0",
     "passport-google-oauth20": "^2.0.0",
+    "redis": "^5.6.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "latest"
+    "uuid": "latest",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "@faker-js/faker": "^7.6.0",

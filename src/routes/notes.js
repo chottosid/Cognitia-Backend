@@ -7,6 +7,7 @@ import {
 } from "../middleware/validation.js";
 import { prisma } from "../lib/database.js";
 import multer from "multer";
+import { createAndSendNotification } from "../utils/notification.js";
 
 const router = express.Router();
 

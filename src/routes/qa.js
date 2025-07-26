@@ -2,6 +2,7 @@ import express from "express";
 import { prisma } from "../lib/database.js";
 import { authenticateToken, optionalAuth } from "../middleware/auth.js";
 import { body } from "express-validator";
+import { createAndSendNotification } from "../utils/notification.js";
 
 const router = express.Router();
 
@@ -259,6 +260,14 @@ router.post("/questions", authenticateToken, async (req, res) => {
       include: {
         author: true,
       },
+    });
+
+    // Send notification to the user
+    await createAndSendNotification({
+      userId: req.user.id,
+      type: "ACCEPTANCE",
+      title: "Question Approved",
+      message: "Your question has been posted and approved.",
     });
 
     res.status(201).json({

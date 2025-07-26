@@ -3,9 +3,12 @@ import helmet from "helmet";
 import morgan from "morgan";
 import compression from "compression";
 import dotenv from "dotenv";
+import http from "http";
 import { swaggerSpec, swaggerUi } from "./utils/swagger.js";
 import jwt from "jsonwebtoken";
 import cron from "node-cron";
+import { createServer } from "http";
+import { WebSocketServer } from "ws";
 import { autoSubmitExpiredTests } from "./jobs/autoSubmit.js";
 import corsMiddleware from "./middleware/cors.js";
 import errorHandler from "./middleware/errorHandler.js";
@@ -28,6 +31,11 @@ import qnaRoutes from "./routes/qa.js";
 import profileRoutes from "./routes/profile.js";
 import { connectDatabase } from "./lib/database.js";
 import { prisma } from "./lib/database.js";
+
+import { createClient } from "redis";
+import { parse } from "url";
+import wss from "./notificationSocket.js";
+import notificationsRouter from './routes/notifications.js';
 // Load environment variables
 
 if (process.env.NODE_ENV == "test") {
@@ -159,7 +167,7 @@ app.get(
 // Group routes by functionality
 // Authentication routes
 app.use("/api/auth", authRoutes);
-
+app.use('/api/notifications', authenticateToken, notificationsRouter);
 // Protected routes
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
@@ -183,19 +191,39 @@ cron.schedule('* * * * *', async () => {
   }
 });
 
+// Create HTTP server (for Express + WebSocket)
+const server = http.createServer(app);
+
+// WebSocket upgrade handling
+server.on("upgrade", (req, socket, head) => {
+   // For now, userId is passed as a query param (?userId=...)
+  const { query } = parse(req.url, true);
+  const userId = query.userId;
+  if (!userId) {
+    socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
+    socket.destroy();
+    return;
+  }
+  wss.handleUpgrade(req, socket, head, (ws) => {
+    wss.emit("connection", ws, req, userId);
+  });
+});
+
+// Connect DB then start server
 connectDatabase()
   .then(() => {
     console.log("✅ Database connected successfully");
+    // Start server
+    server.listen(PORT, "0.0.0.0", () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
+      console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    });
   })
   .catch((err) => {
     console.error("❌ Database connection failed:", err);
     process.exit(1); // Exit if database connection fails
   });
-// Start server
-app.listen(PORT, "0.0.0.0", () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🔗 API base URL: http://localhost:${PORT}/api`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-});
 
 export default app;
+
