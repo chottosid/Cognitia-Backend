@@ -265,7 +265,7 @@ router.post("/questions", authenticateToken, async (req, res) => {
     // Send notification to the user
     await createAndSendNotification({
       userId: req.user.id,
-      type: "ACCEPTANCE",
+      type: "QUESTION_POSTED",
       title: "Question Approved",
       message: "Your question has been posted and approved.",
     });

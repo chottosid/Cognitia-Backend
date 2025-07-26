@@ -5,6 +5,7 @@ import { generateToken, authenticateToken } from "../middleware/auth.js";
 import { sendOtpEmail } from "../utils/mailer.js";
 import otpGenerator from "otp-generator";
 import multer from "multer";
+import { createAndSendNotification } from "../utils/notification.js";
 
 import {
   handleValidationErrors,
@@ -116,6 +117,7 @@ router.post(
       if (user.otpExpires < new Date()) {
         return res.status(400).json({ error: "OTP expired" });
       }
+      
 
       // Clear OTP fields (mark as verified)
       await prisma.user.update({
@@ -123,7 +125,16 @@ router.post(
         data: { otp: null, otpExpires: null, verified: true },
       });
 
+      // Send notification to the user
+      await createAndSendNotification({
+        userId: user.id,
+        type: "LOGIN",
+        title: "Hello!",
+        message: "Your account creation is successfully.",
+      });
+
       res.json({ message: "Registration complete. You can now log in." });
+      
     } catch (error) {
       console.error("OTP verification error:", error);
       res.status(500).json({ error: "OTP verification failed" });
@@ -162,6 +173,13 @@ router.post(
         });
       }
 
+      await createAndSendNotification({
+        userId: user.id,
+        type: "LOGIN",
+        title: "Welcome Back!",
+        message: "Best of luck for today's work",
+      });
+
       // Generate token
       const token = generateToken(user);
 
@@ -173,6 +191,7 @@ router.post(
         user: userResponse,
         token,
       });
+
     } catch (error) {
       console.error("Login error:", error);
       res.status(500).json({ error: "Login failed" });
