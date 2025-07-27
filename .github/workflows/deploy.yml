@@ -72,12 +72,27 @@ jobs:
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
             docker tag ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest cognitia-backend:latest
             # Stop and remove existing containers
-            docker-compose down
+            docker-compose down || echo "No containers to stop"
+            # Clean up any dangling containers
+            docker container prune -f || echo "No containers to prune"
             # Start the application
             docker-compose up -d --force-recreate app
             # Wait for container to be ready and check health
-            sleep 15
+            sleep 30
             # Check if container is running
+            echo "=== Container Status ==="
             docker-compose ps
-            # Check container logs if needed
-            docker-compose logs app --tail=50
+            echo "=== Container Logs ==="
+            docker-compose logs app --tail=100
+            echo "=== Health Check ==="
+            # Try health check multiple times
+            for i in 1 2 3 4 5; do
+              echo "Health check attempt $i/5..."
+              if docker-compose exec -T app wget --no-verbose --tries=1 --spider http://localhost:3001/health; then
+                echo "✅ Health check passed!"
+                break
+              else
+                echo "❌ Health check failed, waiting 10 seconds..."
+                sleep 10
+              fi
+            done

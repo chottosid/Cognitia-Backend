@@ -88,6 +88,8 @@ app.get("/health", async (req, res) => {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       database: "connected",
+      version: "1.1.0",
+      environment: process.env.NODE_ENV || "development",
     });
   } catch (error) {
     console.error("Health check failed:", error);
@@ -97,6 +99,8 @@ app.get("/health", async (req, res) => {
       uptime: process.uptime(),
       database: "disconnected",
       error: error.message,
+      version: "1.1.0",
+      environment: process.env.NODE_ENV || "development",
     });
   }
 });

@@ -8,15 +8,11 @@ if [ -z "$DATABASE_URL" ]; then
     exit 1
 fi
 
-echo "📊 Running database migrations..."
-npx prisma migrate deploy
+echo "📊 Running database setup..."
 
-if [ $? -ne 0 ]; then
-    echo "❌ Database migration failed!"
-    echo "📋 Checking Prisma status..."
-    npx prisma db pull --print || echo "Could not pull database schema"
-    exit 1
-fi
+# Use the migration script
+chmod +x ./scripts/migrate.sh
+./scripts/migrate.sh
 
 echo "✅ Database migrations completed successfully"
 

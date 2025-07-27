@@ -18,11 +18,8 @@ RUN npx prisma generate
 # Copy source code
 COPY . .
 
-# Generate Prisma client again to ensure it's available with all source code
-RUN npx prisma generate
-
-# Make startup script executable
-RUN chmod +x ./scripts/start.sh
+# Make startup scripts executable
+RUN chmod +x ./scripts/start.sh ./scripts/migrate.sh ./scripts/reset-db.sh
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
