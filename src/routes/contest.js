@@ -459,9 +459,17 @@ router.post("/attempt/:attemptId/submit", async (req, res, next) => {
     let correctAnswers = 0;
 
     attempt.contest.assignments.forEach((assignment) => {
-      if (
-        answers[assignment.question.id] === assignment.question.correctAnswer
-      ) {
+      const userAnswer = answers[assignment.question.id];
+      const correctAnswer = assignment.question.correctAnswer;
+      const isCorrect = String(userAnswer) === String(correctAnswer);
+      console.log(
+        'Checking:',
+        assignment.question.id,
+        'user answer:', userAnswer,
+        'correct:', correctAnswer,
+        'isCorrect:', isCorrect
+      );
+      if (isCorrect) {
         score += assignment.points;
         correctAnswers++;
       }
