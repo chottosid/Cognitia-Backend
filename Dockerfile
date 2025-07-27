@@ -9,7 +9,7 @@ RUN apk add --no-cache openssl
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci && npm cache clean --force
 
 # Copy prisma schema and generate client
 COPY prisma ./prisma/
