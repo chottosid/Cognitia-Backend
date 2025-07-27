@@ -2,7 +2,7 @@ import cors from "cors";
 
 // CORS middleware that allows any origin
 const corsMiddleware = cors({
-  origin: process.env.FRONTEND_URL || "http://localhost:3000", // Use env variable for production
+  origin: process.env.FRONTEND_URL || "http://localhost:3000" || "http://cognitiahub.me" || "http://cognitiahub.me", // Use env variable for production
   credentials: true,
   methods: "GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS",
   allowedHeaders: [
