@@ -1,7 +1,5 @@
-// Test setup file
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+// Test setup file - no direct imports or jest usage here
+// This file runs after Jest is initialized
 
 // Setup before all tests
 beforeAll(async () => {
@@ -10,15 +8,5 @@ beforeAll(async () => {
 
 // Cleanup after all tests
 afterAll(async () => {
-  await prisma.$disconnect();
+  // Cleanup logic if needed
 });
-
-// Mock console.log in tests to reduce noise
-global.console = {
-  ...console,
-  log: jest.fn(),
-  error: console.error,
-  warn: console.warn,
-  info: console.info,
-  debug: console.debug,
-};
