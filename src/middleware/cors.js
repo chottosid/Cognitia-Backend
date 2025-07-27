@@ -1,10 +1,14 @@
 import cors from "cors";
 
 // CORS middleware that allows multiple origins
+
 const allowedOrigins = [
   "http://localhost:3000",
+  "https://localhost:3000",
   "http://130.33.96.3:3000",
+  "https://130.33.96.3:3000",
   "http://130.33.96.3",
+  "https://130.33.96.3",
   "http://cognitiahub.me",
   "https://cognitiahub.me",
   "http://www.cognitiahub.me",
