@@ -1,26 +1,40 @@
-import nodemailer from "nodemailer"
+import nodemailer from "nodemailer";
 
+// ✅ Create transporter using Gmail SMTP
+const transporter = nodemailer.createTransport({
+  service: "gmail", // for Gmail. Use 'smtp.yourprovider.com' for custom SMTP
+  auth: {
+    user: process.env.EMAIL_USER, // your Gmail address
+    pass: process.env.EMAIL_PASS, // Gmail app password (not your normal password)
+  },
+});
+
+/**
+ * Send OTP to user's email
+ * @param {string} to - recipient email
+ * @param {string} otp - OTP code
+ */
 export async function sendOtpEmail(to, otp) {
-  // For dev: use Ethereal (https://ethereal.email/)
-  const testAccount = await nodemailer.createTestAccount()
-  const transporter = nodemailer.createTransport({
-    host: testAccount.smtp.host,
-    port: testAccount.smtp.port,
-    secure: testAccount.smtp.secure,
-    auth: {
-      user: testAccount.user,
-      pass: testAccount.pass,
-    },
-  })
-
-  const info = await transporter.sendMail({
-    from: '"Cognitia" <no-reply@cognitia.com>',
+  const mailOptions = {
+    from: `"CognitiaHub" <${process.env.EMAIL_USER}>`,
     to,
-    subject: "Your Cognitia OTP Code",
-    text: `Your OTP code is: ${otp}`,
-    html: `<p>Your OTP code is: <b>${otp}</b></p>`,
-  })
+    subject: "Your CognitiaHub OTP Code",
+    html: `
+      <div style="font-family:Arial, sans-serif; padding:10px;">
+        <h2>Welcome to CognitiaHub 🎉</h2>
+        <p>Your one-time password (OTP) is:</p>
+        <h1 style="color:#4CAF50;">${otp}</h1>
+        <p>This code is valid for <b>10 minutes</b>.</p>
+        <p>If you didn’t request this, you can ignore this email.</p>
+      </div>
+    `,
+  };
 
-  // Preview URL for dev
-  console.log("OTP email sent:", nodemailer.getTestMessageUrl(info))
+  try {
+    await transporter.sendMail(mailOptions);
+    console.log(`✅ Real OTP email sent to: ${to}`);
+  } catch (error) {
+    console.error("❌ Failed to send OTP email:", error);
+    throw new Error("Email sending failed");
+  }
 }

@@ -1,72 +1,50 @@
 import express from "express";
 import bcrypt from "bcryptjs";
 import { body } from "express-validator";
+import multer from "multer";
+import otpGenerator from "otp-generator";
+import passport from "../middleware/googleAuth.js"; // ✅ Google Auth middleware
+import jwt from "jsonwebtoken";
+import { prisma } from "../lib/database.js";
 import { generateToken, authenticateToken } from "../middleware/auth.js";
 import { sendOtpEmail } from "../utils/mailer.js";
-import otpGenerator from "otp-generator";
-import multer from "multer";
 import { createAndSendNotification } from "../utils/notification.js";
-
 import {
   handleValidationErrors,
   validateEmail,
   validatePassword,
 } from "../middleware/validation.js";
 
-import { prisma } from "../lib/database.js";
-
 const router = express.Router();
-
-// Configure multer for file uploads
 const upload = multer();
 
-// Register Step 1: Accept details, generate OTP
+// ✅ 1. EMAIL + OTP REGISTRATION
 router.post(
   "/register",
   upload.single("avatar"),
   [
-    body("name")
-      .trim()
-      .isLength({ min: 2, max: 100 })
-      .withMessage("Name must be between 2 and 100 characters"),
+    body("name").trim().isLength({ min: 2, max: 100 }).withMessage("Name must be between 2 and 100 characters"),
     validateEmail,
     validatePassword,
-    body("role")
-      .optional()
-      .isIn(["STUDENT", "TEACHER"])
-      .withMessage("Role must be STUDENT or TEACHER"),
+    body("role").optional().isIn(["STUDENT", "TEACHER"]).withMessage("Role must be STUDENT or TEACHER"),
     handleValidationErrors,
   ],
   async (req, res) => {
     try {
-      const {
-        name,
-        email,
-        password,
-        role = "STUDENT",
-        bio,
-        institution,
-      } = req.body;
+      const { name, email, password, role = "STUDENT", bio, institution } = req.body;
 
-      // Check if user already exists
+      // Check if user exists
       const existingUser = await prisma.user.findUnique({ where: { email } });
-      if (existingUser) {
-        return res
-          .status(409)
-          .json({ error: "User already exists with this email" });
-      }
+      if (existingUser) return res.status(409).json({ error: "User already exists" });
 
       // Generate OTP
       const otp = otpGenerator.generate(6, { upperCaseAlphabets: false, specialChars: false, alphabets: false });
-      const otpExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+      const otpExpires = new Date(Date.now() + 10 * 60 * 1000);
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 12);
 
-      // Handle avatar upload
-      const avatarBuffer = req.file ? req.file.buffer : null;
-
-      // Create user with OTP (not yet verified)
+      // Store user with OTP
       await prisma.user.create({
         data: {
           name,
@@ -75,131 +53,97 @@ router.post(
           role,
           bio: bio || "",
           institution: institution || "",
-          avatar: avatarBuffer,
+          avatar: req.file ? req.file.buffer : null,
           otp,
           otpExpires,
           verified: false,
         },
       });
 
-      // TODO: Send OTP via email here
-      await sendOtpEmail(email, otp);
-
-      res.status(201).json({
-        message: "OTP sent to email. Please verify to complete registration.",
-      });
-    } catch (error) {
-      console.error("Registration error:", error);
+      await sendOtpEmail(email, otp); // ✅ send real email
+      res.status(201).json({ message: "OTP sent to email. Please verify to complete registration." });
+    } catch (err) {
+      console.error("Registration error:", err);
       res.status(500).json({ error: "Registration failed" });
     }
   }
 );
 
-router.post(
-  "/verify-otp",
-  [
-    body("email").isEmail().withMessage("Valid email required"),
-    body("otp")
-      .isLength({ min: 6, max: 6 })
-      .withMessage("OTP must be 6 digits"),
-    handleValidationErrors,
-  ],
-  async (req, res) => {
-    try {
-      const { email, otp } = req.body;
-      const user = await prisma.user.findUnique({ where: { email } });
-      if (!user || !user.otp || !user.otpExpires) {
-        return res.status(400).json({ error: "No OTP found for this user" });
-      }
-      if (user.otp !== otp) {
-        return res.status(400).json({ error: "Invalid OTP" });
-      }
-      if (user.otpExpires < new Date()) {
-        return res.status(400).json({ error: "OTP expired" });
-      }
-      
+// ✅ 2. VERIFY OTP
+router.post("/verify-otp", [
+  body("email").isEmail().withMessage("Valid email required"),
+  body("otp").isLength({ min: 6, max: 6 }).withMessage("OTP must be 6 digits"),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
 
-      // Clear OTP fields (mark as verified)
-      await prisma.user.update({
-        where: { email },
-        data: { otp: null, otpExpires: null, verified: true },
-      });
+    if (!user || !user.otp || !user.otpExpires) return res.status(400).json({ error: "No OTP found" });
+    if (user.otp !== otp) return res.status(400).json({ error: "Invalid OTP" });
+    if (user.otpExpires < new Date()) return res.status(400).json({ error: "OTP expired" });
 
-      // Send notification to the user
-      await createAndSendNotification({
-        userId: user.id,
-        type: "LOGIN",
-        title: "Hello!",
-        message: "Your account creation is successfully.",
-      });
+    await prisma.user.update({
+      where: { email },
+      data: { otp: null, otpExpires: null, verified: true },
+    });
 
-      res.json({ message: "Registration complete. You can now log in." });
-      
-    } catch (error) {
-      console.error("OTP verification error:", error);
-      res.status(500).json({ error: "OTP verification failed" });
-    }
+    await createAndSendNotification({
+      userId: user.id,
+      type: "LOGIN",
+      title: "Hello!",
+      message: "Your account has been successfully created.",
+    });
+
+    res.json({ message: "Registration complete. You can now log in." });
+  } catch (err) {
+    console.error("OTP verification error:", err);
+    res.status(500).json({ error: "OTP verification failed" });
+  }
+});
+
+// ✅ 3. LOGIN WITH EMAIL + PASSWORD
+router.post("/login", [
+  validateEmail,
+  body("password").notEmpty().withMessage("Password is required"),
+  handleValidationErrors,
+], async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(401).json({ error: "Invalid credentials" });
+
+    const validPass = await bcrypt.compare(password, user.password);
+    if (!validPass) return res.status(401).json({ error: "Invalid credentials" });
+
+    if (!user.verified) return res.status(403).json({ error: "Please verify your email first." });
+
+    await createAndSendNotification({
+      userId: user.id,
+      type: "LOGIN",
+      title: "Welcome Back!",
+      message: "Best of luck for today's work",
+    });
+
+    const token = generateToken(user);
+    res.json({ message: "Login successful", user: { ...user, password: undefined }, token });
+  } catch (err) {
+    console.error("Login error:", err);
+    res.status(500).json({ error: "Login failed" });
+  }
+});
+
+
+// ✅ 4. GOOGLE LOGIN
+router.get("/google", passport.authenticate("google", { scope: ["profile", "email"] }));
+
+router.get("/google/callback",
+  passport.authenticate("google", { session: false, failureRedirect: "/" }),
+  (req, res) => {
+    const token = generateToken(req.user);
+    // ✅ Redirect to frontend with JWT
+    res.redirect(`${process.env.FRONTEND_URL}/auth/success?token=${token}`);
   }
 );
-
-// Login
-router.post(
-  "/login",
-  [
-    validateEmail,
-    body("password").notEmpty().withMessage("Password is required"),
-    handleValidationErrors,
-  ],
-  async (req, res) => {
-    try {
-      const { email, password } = req.body;
-
-      // Find user in DB
-      const user = await prisma.user.findUnique({ where: { email } });
-      if (!user) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      // Compare password
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      // Check if user is verified
-      if (!user.verified) {
-        return res.status(403).json({
-          error: "User not verified. Please check your email for OTP.",
-        });
-      }
-
-      await createAndSendNotification({
-        userId: user.id,
-        type: "LOGIN",
-        title: "Welcome Back!",
-        message: "Best of luck for today's work",
-      });
-
-      // Generate token
-      const token = generateToken(user);
-
-      // Remove password from response
-      const { password: _, ...userResponse } = user;
-
-      res.json({
-        message: "Login successful",
-        user: userResponse,
-        token,
-      });
-
-    } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
-    }
-  }
-);
-
-// Get total number of users
-
 
 export default router;
