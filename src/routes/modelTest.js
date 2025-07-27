@@ -224,6 +224,8 @@ router.post("/create", async (req, res, next) => {
       difficulty = "MEDIUM",
       timeLimit = 60,
       questionCount = 20,
+      title = `Generated Test - ${subjects.join(", ")}`,
+      description = `Auto-generated test for ${subjects.join(", ")} (${difficulty})`,
     } = req.body;
 
     if (!subjects.length) {
@@ -619,20 +621,20 @@ router.get("/stats", async (req, res, next) => {
     const averageScore =
       totalAttempts > 0
         ? Math.round(
-            allAttempts.reduce(
-              (sum, attempt) => sum + (attempt.score || 0),
-              0
-            ) / totalAttempts
-          )
+          allAttempts.reduce(
+            (sum, attempt) => sum + (attempt.score || 0),
+            0
+          ) / totalAttempts
+        )
         : 0;
     const averageTimeSpent =
       totalAttempts > 0
         ? Math.round(
-            allAttempts.reduce(
-              (sum, attempt) => sum + (attempt.timeSpent || 0),
-              0
-            ) / totalAttempts
-          )
+          allAttempts.reduce(
+            (sum, attempt) => sum + (attempt.timeSpent || 0),
+            0
+          ) / totalAttempts
+        )
         : 0;
     const highestScore =
       totalAttempts > 0
