@@ -75,7 +75,9 @@ jobs:
             docker-compose down
             # Start the application
             docker-compose up -d --force-recreate app
-            # Wait for container to be ready
-            sleep 10
-            # Run database migrations
-            docker-compose exec -T app npx prisma migrate deploy
+            # Wait for container to be ready and check health
+            sleep 15
+            # Check if container is running
+            docker-compose ps
+            # Check container logs if needed
+            docker-compose logs app --tail=50

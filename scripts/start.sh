@@ -13,10 +13,15 @@ npx prisma migrate deploy
 
 if [ $? -ne 0 ]; then
     echo "❌ Database migration failed!"
+    echo "📋 Checking Prisma status..."
+    npx prisma db pull --print || echo "Could not pull database schema"
     exit 1
 fi
 
 echo "✅ Database migrations completed successfully"
 
+# Add a small delay to ensure everything is ready
+sleep 2
+
 echo "🏁 Starting the application..."
-npm start
+exec npm start

@@ -35,7 +35,7 @@ import { prisma } from "./lib/database.js";
 import { createClient } from "redis";
 import { parse } from "url";
 import wss from "./notificationSocket.js";
-import notificationsRouter from './routes/notifications.js';
+import notificationsRouter from "./routes/notifications.js";
 // Load environment variables
 
 if (process.env.NODE_ENV == "test") {
@@ -78,12 +78,27 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // Health check endpoint
-app.get("/health", (req, res) => {
-  res.status(200).json({
-    status: "OK",
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-  });
+app.get("/health", async (req, res) => {
+  try {
+    // Test database connection
+    await prisma.$queryRaw`SELECT 1`;
+
+    res.status(200).json({
+      status: "healthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: "connected",
+    });
+  } catch (error) {
+    console.error("Health check failed:", error);
+    res.status(503).json({
+      status: "unhealthy",
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: "disconnected",
+      error: error.message,
+    });
+  }
 });
 
 app.get("/api/users/count", async (req, res) => {
@@ -130,7 +145,7 @@ app.get(
           file: true,
           title: true,
           visibility: true,
-          authorId: true
+          authorId: true,
         },
       });
 
@@ -167,7 +182,7 @@ app.get(
 // Group routes by functionality
 // Authentication routes
 app.use("/api/auth", authRoutes);
-app.use('/api/notifications', authenticateToken, notificationsRouter);
+app.use("/api/notifications", authenticateToken, notificationsRouter);
 // Protected routes
 app.use("/api/dashboard", authenticateToken, dashboardRoutes);
 app.use("/api/analytics", authenticateToken, analyticsRoutes);
@@ -183,11 +198,11 @@ app.use("/api/admin/contests", authenticateToken, contestAdminRoutes);
 
 app.use(errorHandler);
 
-cron.schedule('* * * * *', async () => {
+cron.schedule("* * * * *", async () => {
   try {
     await autoSubmitExpiredTests();
   } catch (err) {
-    console.error('Error auto-submitting test attempts:', err);
+    console.error("Error auto-submitting test attempts:", err);
   }
 });
 
@@ -196,7 +211,7 @@ const server = http.createServer(app);
 
 // WebSocket upgrade handling
 server.on("upgrade", (req, socket, head) => {
-   // For now, userId is passed as a query param (?userId=...)
+  // For now, userId is passed as a query param (?userId=...)
   const { query } = parse(req.url, true);
   const userId = query.userId;
   if (!userId) {
@@ -226,4 +241,3 @@ connectDatabase()
   });
 
 export default app;
-
