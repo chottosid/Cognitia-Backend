@@ -1,7 +1,8 @@
 import Redis from 'ioredis';
 
-const redisPublisher = new Redis(); // default localhost:6379
-const redisSubscriber = new Redis();
+const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisPublisher = new Redis(redisUrl);
+const redisSubscriber = new Redis(redisUrl);
 
 const NOTIFICATION_CHANNEL = 'notifications';
 

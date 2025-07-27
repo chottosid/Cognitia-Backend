@@ -6,7 +6,27 @@ on:
       - master
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test
+
   deploy:
+    needs: test
     runs-on: ubuntu-latest
 
     steps:
@@ -30,11 +50,25 @@ jobs:
         uses: appleboy/ssh-action@v1.0.0
         with:
           host: ${{ secrets.VM_IP }}
-          username: seed
+          username: swarup
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            cd /home/seed/Cognitia/Cognitia-Backend
+            cd /home/swarup/Cognitia/Cognitia-Backend
+            # Create directory if it doesn't exist
+            mkdir -p /home/swarup/Cognitia/Cognitia-Backend
+            cd /home/swarup/Cognitia/Cognitia-Backend
+            # Copy docker-compose.yml if it doesn't exist
+            if [ ! -f docker-compose.yml ]; then
+              wget -O docker-compose.yml https://raw.githubusercontent.com/chottosid/Cognitia-Backend/master/docker-compose.yml
+            fi
+            # Copy .env file if it doesn't exist (you'll need to create this manually on the VM)
+            if [ ! -f .env ]; then
+              echo "Warning: .env file not found. Please create it manually with your environment variables."
+            fi
+            # Pull latest image
             docker pull ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest
             docker tag ${{ secrets.DOCKERHUB_USERNAME }}/cognitia-backend:latest cognitia-backend:latest
+            # Stop and remove existing containers
             docker-compose down
+            # Start the application
             docker-compose up -d --force-recreate app
