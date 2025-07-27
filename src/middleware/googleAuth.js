@@ -3,11 +3,15 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { prisma } from "../lib/database.js";
 import bcrypt from "bcryptjs";
 
+// Ensure environment variables are loaded
+const clientID = process.env.GOOGLE_CLIENT_ID || "test-client-id";
+const clientSecret = process.env.GOOGLE_CLIENT_SECRET || "test-client-secret";
+
 passport.use(
     new GoogleStrategy(
         {
-            clientID: process.env.GOOGLE_CLIENT_ID,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+            clientID,
+            clientSecret,
             callbackURL: "/api/auth/google/callback",
             scope: ["profile", "email"],
             // prompt doesn't always work here directly; we'll override authorizationParams below

@@ -15,7 +15,7 @@ export default {
     "!src/**/*.test.js",
     "!src/**/*.spec.js",
   ],
-  setupFilesAfterEnv: ["<rootDir>/src/tests/setup.js"],
+  setupFiles: ["<rootDir>/jest.setup.js"],
   coverageDirectory: "coverage",
   coverageReporters: ["text", "lcov", "html"],
   verbose: true,
