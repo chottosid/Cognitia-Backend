@@ -65,7 +65,7 @@ app.use(corsMiddleware);
 app.use((req, res, next) => {
   res.setHeader(
     "Content-Security-Policy",
-    "frame-ancestors 'self' http://localhost:3000"
+    "frame-ancestors 'self' http://localhost:3000 http://130.33.96.3:3000 http://130.33.96.3 http://cognitiahub.me https://cognitiahub.me http://www.cognitiahub.me https://www.cognitiahub.me"
   );
   res.removeHeader("X-Frame-Options");
   next();

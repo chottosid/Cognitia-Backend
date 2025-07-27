@@ -83,7 +83,9 @@ describe("Contest Routes", () => {
     it("should return 404 for non-existent contest", async () => {
       mockContestFindUnique.mockResolvedValue(null);
 
-      const response = await request(app).post("/api/contests/non-existent/register");
+      const response = await request(app).post(
+        "/api/contests/non-existent/register"
+      );
 
       expect(response.status).toBe(404);
       expect(response.body).toHaveProperty("error", "Contest not found");
