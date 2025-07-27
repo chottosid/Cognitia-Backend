@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       
+      - name: Generate Prisma Client
+        run: npx prisma generate
+      
       - name: Run tests
         run: npm test
 
@@ -72,3 +75,7 @@ jobs:
             docker-compose down
             # Start the application
             docker-compose up -d --force-recreate app
+            # Wait for container to be ready
+            sleep 10
+            # Run database migrations
+            docker-compose exec -T app npx prisma migrate deploy
