@@ -1,6 +1,6 @@
 # Cognitia Backend
 
-Cognitia Backend is a Node.js REST API server for managing tasks, notes, contests, and model tests. It uses PostgreSQL (via Prisma ORM) and is designed for easy deployment and development.
+This repo containts the ExpressJS backend code for our CSE406 Software Development Sessional Project, Cogntia. Cognitia aims to provide study materials, personalised learning experience, and community of individuals in one place.
 
 ## Project Structure
 
@@ -13,6 +13,7 @@ Cognitia Backend is a Node.js REST API server for managing tasks, notes, contest
 - Node.js 22.x
 - npm
 - PostgreSQL database
+- Redis database
 
 ## Setup Instructions
 
@@ -29,12 +30,7 @@ Cognitia Backend is a Node.js REST API server for managing tasks, notes, contest
 
 3. **Configure environment variables:**
    - Copy `.env.example` to `.env` (create `.env` if not present).
-   - Set the following variables:
-     ```properties
-     DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<db>
-     JWT_SECRET=your-jwt-secret
-     PORT=3001
-     ```
+   - Set the variables
 
 4. **Generate Prisma client:**
    ```bash
@@ -67,10 +63,8 @@ npm test
 
 To build and run with Docker:
 ```bash
-docker build -t cognitia-backend .
-docker run --env-file .env -p 3001:3001 cognitia-backend
+docker-compose up
 ```
-Or use `docker-compose up` if you have a `docker-compose.yml`.
 
 ## Deployment
 
@@ -79,3 +73,9 @@ See `.github/workflows/deploy.yml` for CI/CD and deployment automation details.
 ## API Reference
 
 See `docs/api/` for detailed API documentation for each module.
+
+
+## Live Website
+Live website available at 
+
+`http://cognitiahub.me`
