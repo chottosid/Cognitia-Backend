@@ -1,74 +1,81 @@
 # Cognitia Backend
 
-Cognitia Backend is a Node.js-based application that provides APIs for managing tasks, notes, contests, and model tests. It uses PostgreSQL as the database and Prisma as the ORM.
-
-## Features
-
-- User authentication and authorization
-- Task management
-- Notes and notes group management
-- Contest and model test management
-- API documentation for all endpoints
+Cognitia Backend is a Node.js REST API server for managing tasks, notes, contests, and model tests. It uses PostgreSQL (via Prisma ORM) and is designed for easy deployment and development.
 
 ## Project Structure
 
-- **`src/`**: Contains the main application code.
-- **`prisma/`**: Contains Prisma schema.
-- **`docs/api/`**: API documentation files.
+- `src/` — Main application code (routes, middleware, jobs, utils, etc.)
+- `prisma/` — Prisma schema and migrations
+- `docs/api/` — API documentation (see individual `.md` files for endpoint details)
 
-## API Documentation
+## Prerequisites
 
-The API documentation is available in the `docs/api/` directory:
+- Node.js 22.x
+- npm
+- PostgreSQL database
 
-- **Tasks API**: `docs/api/tasks.md`
-- **Notes API**: `docs/api/notes.md`
-- **Model Test API**: `docs/api/modelTest.md`
-- **Contest API**: `docs/api/contest.md`
-- **Admin Contest API**: `docs/api/contestAdmin.md`
+## Setup Instructions
 
-## Environment Variables
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/chottosid/Cognitia-Backend.git
+   cd Cognitia-Backend
+   ```
 
-The database connection URL and other configurations are stored in `.env` files:
-
-- **Development**: `.env`
-- **Testing**: `.env.test`
-
-### Example `.env` Configuration
-
-```properties
-DATABASE_URL="your-database-url"
-JWT_SECRET="your-jwt-secret"
-PORT=3001
-```
-
-## Running the Application
-
-1. Install dependencies:
+2. **Install dependencies:**
    ```bash
    npm install
    ```
-2. Run the application:
+
+3. **Configure environment variables:**
+   - Copy `.env.example` to `.env` (create `.env` if not present).
+   - Set the following variables:
+     ```properties
+     DATABASE_URL=postgresql://<user>:<password>@<host>:<port>/<db>
+     JWT_SECRET=your-jwt-secret
+     PORT=3001
+     ```
+
+4. **Generate Prisma client:**
+   ```bash
+   npx prisma generate
+   ```
+
+5. **Run database migrations:**
+   ```bash
+   npx prisma migrate deploy
+   ```
+
+6. **(Optional) Seed the database:**
+   ```bash
+   node src/seed.js
+   ```
+
+7. **Start the development server:**
    ```bash
    npm run dev
    ```
 
-## Docker Support
-
-The application can be containerized using the provided `Dockerfile`.
-
-## Deployment
-
-The deployment process is automated using a GitHub Actions workflow located at `.github/workflows/deploy.yml`.
-
-## Database
-
-- **Prisma Schema**: `prisma/schema.prisma`
-- **Seed Script**: `prisma/seed.js`
-
 ## Testing
 
-Run tests using:
-
+Run all tests:
 ```bash
 npm test
 ```
+
+## Docker
+
+To build and run with Docker:
+```bash
+docker build -t cognitia-backend .
+docker run --env-file .env -p 3001:3001 cognitia-backend
+```
+Or use `docker-compose up` if you have a `docker-compose.yml`.
+
+## Deployment
+
+See `.github/workflows/deploy.yml` for CI/CD and deployment automation details.
+
+## API Reference
+
+See `docs/api/` for detailed API documentation for each module.
